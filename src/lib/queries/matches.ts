@@ -41,6 +41,23 @@ export function useRecordMatch() {
   });
 }
 
+export function useRecentMatches(days = 30) {
+  return useQuery({
+    queryKey: ["matches", "recent", days],
+    queryFn: async (): Promise<MatchRow[]> => {
+      const supabase = createClient();
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("matches")
+        .select("*")
+        .gte("played_at", since)
+        .order("played_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as MatchRow[];
+    },
+  });
+}
+
 export function usePlayerMatches(playerId: string | null) {
   return useQuery({
     queryKey: ["matches", "player", playerId],

@@ -15,3 +15,8 @@ export const ELO_PRESETS = {
 } as const;
 
 export type EloPreset = keyof typeof ELO_PRESETS;
+
+// Cote parieur : 1 / P(gagne) avec marge 5% (overround)
+export function eloOdds(ra: number, rb: number): number {
+  return Math.round((1.05 / expectedScore(ra, rb)) * 100) / 100;
+}

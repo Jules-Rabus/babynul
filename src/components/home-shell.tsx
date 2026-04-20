@@ -11,6 +11,7 @@ import { MatchmakingPanel } from "@/components/matchmaking/matchmaking-panel";
 import { PlayersTable } from "@/components/players-admin/players-table";
 import { TournamentPanel } from "@/components/tournament/tournament-panel";
 import { BetsPanel } from "@/components/bets/bets-panel";
+import { WagersPanel } from "@/components/wagers/wagers-panel";
 
 export function HomeShell({ unlocked }: { unlocked: boolean }) {
   return (
@@ -39,7 +40,8 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
                 <TabsTrigger value="record">Saisir un match</TabsTrigger>
                 <TabsTrigger value="matchmaking">Matchmaking</TabsTrigger>
                 <TabsTrigger value="tournament">Tournoi</TabsTrigger>
-                <TabsTrigger value="bets">Paris</TabsTrigger>
+                <TabsTrigger value="wagers">Paris</TabsTrigger>
+                <TabsTrigger value="polls">Sondages</TabsTrigger>
                 <TabsTrigger value="players">Joueurs</TabsTrigger>
               </TabsList>
             </div>
@@ -63,7 +65,11 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
               <TournamentPanel />
             </TabsContent>
 
-            <TabsContent value="bets">
+            <TabsContent value="wagers">
+              <WagersPanel />
+            </TabsContent>
+
+            <TabsContent value="polls">
               <BetsPanel />
             </TabsContent>
 
