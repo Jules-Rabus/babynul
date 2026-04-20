@@ -102,8 +102,8 @@ export function detectRivalries(
     if (teamA.length !== A.length || teamB.length !== B.length) continue;
 
     let kind: Rivalry["kind"];
-    if (total >= 3) kind = "rivalite";
-    else if (winsA === winsB) kind = "belle";
+    if (winsA === winsB) kind = "belle";
+    else if (total >= 3) kind = "rivalite";
     else kind = "revanche";
 
     result.push({

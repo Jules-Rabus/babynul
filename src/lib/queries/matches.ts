@@ -72,7 +72,7 @@ export function usePlayerMatches(playerId: string | null) {
           `player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`,
         )
         .order("played_at", { ascending: false })
-        .limit(50);
+        .limit(500);
       if (error) throw error;
       return (data ?? []) as MatchRow[];
     },

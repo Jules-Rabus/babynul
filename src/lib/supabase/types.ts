@@ -16,6 +16,11 @@ export type Database = {
           first_name: string;
           elo: number;
           games_played: number;
+          wager_balance: number;
+          wager_total_won: number;
+          wager_total_lost: number;
+          wager_bets_placed: number;
+          wager_bets_won: number;
           created_at: string;
         };
         Insert: {
@@ -24,6 +29,11 @@ export type Database = {
           first_name: string;
           elo?: number;
           games_played?: number;
+          wager_balance?: number;
+          wager_total_won?: number;
+          wager_total_lost?: number;
+          wager_bets_placed?: number;
+          wager_bets_won?: number;
           created_at?: string;
         };
         Update: {
@@ -32,6 +42,11 @@ export type Database = {
           first_name?: string;
           elo?: number;
           games_played?: number;
+          wager_balance?: number;
+          wager_total_won?: number;
+          wager_total_lost?: number;
+          wager_bets_placed?: number;
+          wager_bets_won?: number;
           created_at?: string;
         };
         Relationships: [];

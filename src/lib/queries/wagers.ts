@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { getBettorKey, getNickname } from "@/lib/bettor-identity";
 import type { PlayerRow } from "@/lib/supabase/types";
 
 export type ProposedMatchRow = {
@@ -21,22 +20,10 @@ export type ProposedMatchRow = {
   resolved_at: string | null;
 };
 
-export type BettorRow = {
-  bettor_key: string;
-  nickname: string | null;
-  balance: number;
-  total_won: number;
-  total_lost: number;
-  bets_placed: number;
-  bets_won: number;
-  created_at: string;
-  updated_at: string;
-};
-
 export type WagerRow = {
   id: string;
   proposed_match_id: string;
-  bettor_key: string;
+  player_id: string;
   side: "A" | "B";
   stake: number;
   odds: number;
@@ -53,8 +40,6 @@ export type ProposedMatchWithPlayers = ProposedMatchRow & {
 };
 
 export const PROPOSED_KEY = ["proposed-matches"] as const;
-export const BETTOR_KEY = ["bettor"] as const;
-export const BETTORS_KEY = ["bettors"] as const;
 
 export function useProposedMatches() {
   return useQuery({
@@ -86,49 +71,6 @@ export function useWagers(proposedMatchId: string | null) {
         .eq("proposed_match_id", proposedMatchId);
       if (error) throw error;
       return (data ?? []) as WagerRow[];
-    },
-  });
-}
-
-export function useMe() {
-  return useQuery({
-    queryKey: BETTOR_KEY,
-    queryFn: async (): Promise<BettorRow> => {
-      const supabase = createClient();
-      const key = getBettorKey();
-      const { data } = await supabase
-        .from("bettors")
-        .select("*")
-        .eq("bettor_key", key)
-        .maybeSingle();
-      if (data) return data as BettorRow;
-      // Profil fictif jusqu'au premier pari
-      return {
-        bettor_key: key,
-        nickname: getNickname() || null,
-        balance: 1000,
-        total_won: 0,
-        total_lost: 0,
-        bets_placed: 0,
-        bets_won: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    },
-  });
-}
-
-export function useBettors() {
-  return useQuery({
-    queryKey: BETTORS_KEY,
-    queryFn: async (): Promise<BettorRow[]> => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("bettors")
-        .select("*")
-        .order("balance", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as BettorRow[];
     },
   });
 }
@@ -165,8 +107,7 @@ export function useCancelProposedMatch() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROPOSED_KEY });
-      qc.invalidateQueries({ queryKey: BETTOR_KEY });
-      qc.invalidateQueries({ queryKey: BETTORS_KEY });
+      qc.invalidateQueries({ queryKey: ["players"] });
     },
   });
 }
@@ -174,11 +115,10 @@ export function useCancelProposedMatch() {
 export function usePlaceWager(proposedMatchId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { side: "A" | "B"; stake: number; nickname?: string }) => {
+    mutationFn: async (input: { playerId: string; side: "A" | "B"; stake: number }) => {
       const supabase = createClient();
       const { error } = await supabase.rpc("place_wager", {
-        p_bettor_key: getBettorKey(),
-        p_nickname: input.nickname ?? getNickname() ?? null,
+        p_player_id: input.playerId,
         p_proposed_match_id: proposedMatchId,
         p_side: input.side,
         p_stake: input.stake,
@@ -187,8 +127,7 @@ export function usePlaceWager(proposedMatchId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["wagers", proposedMatchId] });
-      qc.invalidateQueries({ queryKey: BETTOR_KEY });
-      qc.invalidateQueries({ queryKey: BETTORS_KEY });
+      qc.invalidateQueries({ queryKey: ["players"] });
     },
   });
 }
@@ -207,8 +146,7 @@ export function useResolveProposedMatch() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROPOSED_KEY });
-      qc.invalidateQueries({ queryKey: BETTOR_KEY });
-      qc.invalidateQueries({ queryKey: BETTORS_KEY });
+      qc.invalidateQueries({ queryKey: ["players"] });
     },
   });
 }

@@ -4,13 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AdminButton } from "@/components/admin-button";
 import { AdminProvider } from "@/components/admin-context";
+import { IdentityPicker } from "@/components/identity-picker";
 import { PlayersRanking } from "@/components/ranking/players-ranking";
 import { TeamsRanking } from "@/components/ranking/teams-ranking";
 import { RecordMatchForm } from "@/components/matches/record-match-form";
 import { MatchmakingPanel } from "@/components/matchmaking/matchmaking-panel";
 import { PlayersTable } from "@/components/players-admin/players-table";
 import { TournamentPanel } from "@/components/tournament/tournament-panel";
-import { BetsPanel } from "@/components/bets/bets-panel";
 import { WagersPanel } from "@/components/wagers/wagers-panel";
 
 export function HomeShell({ unlocked }: { unlocked: boolean }) {
@@ -26,6 +26,7 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <IdentityPicker />
               <ThemeToggle />
               <AdminButton />
             </div>
@@ -41,7 +42,6 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
                 <TabsTrigger value="matchmaking">Matchmaking</TabsTrigger>
                 <TabsTrigger value="tournament">Tournoi</TabsTrigger>
                 <TabsTrigger value="wagers">Paris</TabsTrigger>
-                <TabsTrigger value="polls">Sondages</TabsTrigger>
                 <TabsTrigger value="players">Joueurs</TabsTrigger>
               </TabsList>
             </div>
@@ -67,10 +67,6 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
 
             <TabsContent value="wagers">
               <WagersPanel />
-            </TabsContent>
-
-            <TabsContent value="polls">
-              <BetsPanel />
             </TabsContent>
 
             <TabsContent value="players">

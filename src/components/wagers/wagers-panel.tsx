@@ -16,10 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAdmin } from "@/components/admin-context";
+import { useCurrentPlayer } from "@/hooks/use-current-player";
 import {
-  useBettors,
   useCancelProposedMatch,
-  useMe,
   usePlaceWager,
   useProposedMatches,
   useResolveProposedMatch,
@@ -27,57 +26,67 @@ import {
   type ProposedMatchWithPlayers,
   type WagerRow,
 } from "@/lib/queries/wagers";
+import { usePlayers } from "@/lib/queries/players";
 import { eloOdds } from "@/lib/elo";
-import { getBettorKey, getNickname, setNickname } from "@/lib/bettor-identity";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export function WagersPanel() {
-  const { data: me } = useMe();
+  const { me } = useCurrentPlayer();
   const { data: proposed = [], isLoading } = useProposedMatches();
 
   const openMatches = proposed.filter((m) => m.status === "open");
   const historical = proposed.filter((m) => m.status !== "open").slice(0, 5);
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-        <div className="space-y-3">
-          <BettorHeader balance={me?.balance ?? 1000} />
+    <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+      <div className="space-y-3">
+        <BettorHeader />
 
-          {isLoading ? (
-            <div className="h-24 animate-pulse rounded-xl bg-muted" />
-          ) : openMatches.length === 0 ? (
-            <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Aucun pari ouvert pour l&apos;instant.
-                <br />
-                Un admin peut en ouvrir depuis l&apos;onglet <span className="font-semibold">Matchmaking</span>.
-              </CardContent>
-            </Card>
-          ) : (
-            openMatches.map((m) => <ProposedMatchCard key={m.id} match={m} />)
-          )}
+        {isLoading ? (
+          <div className="h-24 animate-pulse rounded-xl bg-muted" />
+        ) : openMatches.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              Aucun pari ouvert pour l&apos;instant.
+              <br />
+              Un admin peut en ouvrir depuis l&apos;onglet <span className="font-semibold">Matchmaking</span>.
+            </CardContent>
+          </Card>
+        ) : (
+          openMatches.map((m) => <ProposedMatchCard key={m.id} match={m} currentPlayerId={me?.id ?? null} />)
+        )}
 
-          {historical.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Derniers résolus</h3>
-              {historical.map((m) => (
-                <ProposedMatchCard key={m.id} match={m} compact />
-              ))}
-            </section>
-          )}
-        </div>
-
-        <TipstersLeaderboard />
+        {historical.length > 0 && (
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">Derniers résolus</h3>
+            {historical.map((m) => (
+              <ProposedMatchCard key={m.id} match={m} compact currentPlayerId={me?.id ?? null} />
+            ))}
+          </section>
+        )}
       </div>
+
+      <TipstersLeaderboard />
     </div>
   );
 }
 
-function BettorHeader({ balance }: { balance: number }) {
-  const [nick, setNick] = useState(() => getNickname());
-  const [editing, setEditing] = useState(false);
+function BettorHeader() {
+  const { me } = useCurrentPlayer();
+
+  if (!me) {
+    return (
+      <Card>
+        <CardContent className="flex items-center gap-3 py-4 text-sm">
+          <Coins className="h-6 w-6 text-muted-foreground" />
+          <span className="text-muted-foreground">
+            Cliquez sur <strong>&quot;Qui êtes-vous ?&quot;</strong> en haut pour choisir votre profil et parier.
+          </span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -85,34 +94,18 @@ function BettorHeader({ balance }: { balance: number }) {
         <div className="flex items-center gap-3">
           <Coins className="h-6 w-6 text-accent" />
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Votre solde</div>
-            <div className="text-2xl font-bold tabular-nums">{balance} pts</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Solde de {me.first_name}
+            </div>
+            <div className="text-2xl font-bold tabular-nums">{me.wager_balance} pts</div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {editing ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setNickname(nick);
-                setEditing(false);
-                toast.success("Pseudo enregistré.");
-              }}
-              className="flex gap-2"
-            >
-              <Input
-                value={nick}
-                onChange={(e) => setNick(e.target.value)}
-                placeholder="Votre pseudo"
-                autoFocus
-                className="h-9 w-40"
-              />
-              <Button type="submit" size="sm">OK</Button>
-            </form>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              {nick || "Définir un pseudo"}
-            </Button>
+        <div className="text-right text-xs text-muted-foreground">
+          <div>
+            {me.wager_bets_won} / {me.wager_bets_placed} paris gagnés
+          </div>
+          {me.wager_total_won > 0 && (
+            <div className="text-primary">+{me.wager_total_won} pts gagnés au total</div>
           )}
         </div>
       </CardContent>
@@ -120,7 +113,15 @@ function BettorHeader({ balance }: { balance: number }) {
   );
 }
 
-function ProposedMatchCard({ match, compact }: { match: ProposedMatchWithPlayers; compact?: boolean }) {
+function ProposedMatchCard({
+  match,
+  compact,
+  currentPlayerId,
+}: {
+  match: ProposedMatchWithPlayers;
+  compact?: boolean;
+  currentPlayerId: string | null;
+}) {
   const { unlocked } = useAdmin();
   const { data: wagers = [] } = useWagers(match.id);
   const cancel = useCancelProposedMatch();
@@ -192,8 +193,18 @@ function ProposedMatchCard({ match, compact }: { match: ProposedMatchWithPlayers
             <SideSummary label={teamALabel} odds={oddsA} pool={totalStakeA} wagers={wagers.filter((w) => w.side === "A").length} highlight={match.winner_side === "A"} />
             <SideSummary label={teamBLabel} odds={oddsB} pool={totalStakeB} wagers={wagers.filter((w) => w.side === "B").length} highlight={match.winner_side === "B"} />
           </div>
-          {isOpen && <BetForm match={match} oddsA={oddsA} oddsB={oddsB} teamALabel={teamALabel} teamBLabel={teamBLabel} />}
-          {!isOpen && <MyWagerResult wagers={wagers} winnerSide={match.winner_side} />}
+          {isOpen && (
+            <BetForm
+              match={match}
+              oddsA={oddsA}
+              oddsB={oddsB}
+              teamALabel={teamALabel}
+              teamBLabel={teamBLabel}
+              currentPlayerId={currentPlayerId}
+              wagers={wagers}
+            />
+          )}
+          {!isOpen && <MyWagerResult wagers={wagers} winnerSide={match.winner_side} currentPlayerId={currentPlayerId} />}
         </CardContent>
       )}
     </Card>
@@ -235,20 +246,31 @@ function BetForm({
   oddsB,
   teamALabel,
   teamBLabel,
+  currentPlayerId,
+  wagers,
 }: {
   match: ProposedMatchWithPlayers;
   oddsA: number;
   oddsB: number;
   teamALabel: string;
   teamBLabel: string;
+  currentPlayerId: string | null;
+  wagers: WagerRow[];
 }) {
   const [side, setSide] = useState<"A" | "B">("A");
   const [stake, setStake] = useState("100");
   const place = usePlaceWager(match.id);
-  const { data: me } = useMe();
-  const { data: wagers = [] } = useWagers(match.id);
+  const { me } = useCurrentPlayer();
 
-  const myWager = wagers.find((w) => w.bettor_key === getBettorKey());
+  if (!currentPlayerId) {
+    return (
+      <div className="rounded-xl bg-muted/30 p-3 text-sm text-muted-foreground">
+        Choisissez votre profil en haut pour placer un pari.
+      </div>
+    );
+  }
+
+  const myWager = wagers.find((w) => w.player_id === currentPlayerId);
 
   const handleBet = async () => {
     const amount = Number(stake);
@@ -257,7 +279,7 @@ function BetForm({
       return;
     }
     try {
-      await place.mutateAsync({ side, stake: amount });
+      await place.mutateAsync({ playerId: currentPlayerId, side, stake: amount });
       toast.success(`${amount} pts sur ${side === "A" ? teamALabel : teamBLabel}.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
@@ -295,13 +317,13 @@ function BetForm({
         </div>
         <div className="flex-1 min-w-[120px]">
           <Label htmlFor={`stake-${match.id}`} className="text-xs">
-            Mise (solde : {me?.balance ?? 1000} pts)
+            Mise (solde : {me?.wager_balance ?? 0} pts)
           </Label>
           <Input
             id={`stake-${match.id}`}
             type="number"
             min="1"
-            max={me?.balance ?? undefined}
+            max={me?.wager_balance ?? undefined}
             value={stake}
             onChange={(e) => setStake(e.target.value)}
             className="mt-1 h-9"
@@ -315,8 +337,17 @@ function BetForm({
   );
 }
 
-function MyWagerResult({ wagers, winnerSide }: { wagers: WagerRow[]; winnerSide: "A" | "B" | null }) {
-  const mine = wagers.find((w) => w.bettor_key === getBettorKey());
+function MyWagerResult({
+  wagers,
+  winnerSide,
+  currentPlayerId,
+}: {
+  wagers: WagerRow[];
+  winnerSide: "A" | "B" | null;
+  currentPlayerId: string | null;
+}) {
+  if (!currentPlayerId) return null;
+  const mine = wagers.find((w) => w.player_id === currentPlayerId);
   if (!mine) return null;
   const won = mine.status === "won";
   const refunded = mine.status === "refunded";
@@ -344,8 +375,12 @@ function MyWagerResult({ wagers, winnerSide }: { wagers: WagerRow[]; winnerSide:
 }
 
 function TipstersLeaderboard() {
-  const { data: bettors = [] } = useBettors();
-  const top = bettors.slice(0, 8);
+  const { data: players = [] } = usePlayers();
+  const top = [...players]
+    .filter((p) => p.wager_bets_placed > 0)
+    .sort((a, b) => b.wager_balance - a.wager_balance)
+    .slice(0, 8);
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -356,29 +391,29 @@ function TipstersLeaderboard() {
       </CardHeader>
       <CardContent className="p-0">
         {top.length === 0 ? (
-          <p className="px-6 pb-6 text-sm text-muted-foreground">Encore aucun parieur.</p>
+          <p className="px-6 pb-6 text-sm text-muted-foreground">Encore aucun pari placé.</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10"></TableHead>
-                <TableHead>Pseudo</TableHead>
+                <TableHead className="w-10" />
+                <TableHead>Joueur</TableHead>
                 <TableHead className="text-right">Solde</TableHead>
                 <TableHead className="text-right">Réussite</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {top.map((b, i) => {
-                const rate = b.bets_placed ? Math.round((b.bets_won / b.bets_placed) * 100) : 0;
+              {top.map((p, i) => {
+                const rate = p.wager_bets_placed ? Math.round((p.wager_bets_won / p.wager_bets_placed) * 100) : 0;
                 return (
-                  <TableRow key={b.bettor_key}>
+                  <TableRow key={p.id}>
                     <TableCell>
                       {i === 0 ? <Crown className="h-4 w-4 text-accent" /> : <span className="text-xs text-muted-foreground">#{i + 1}</span>}
                     </TableCell>
-                    <TableCell className="font-medium">{b.nickname || "Anonyme"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{b.balance}</TableCell>
+                    <TableCell className="font-medium">{p.first_name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{p.wager_balance}</TableCell>
                     <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                      {b.bets_won}/{b.bets_placed} ({rate}%)
+                      {p.wager_bets_won}/{p.wager_bets_placed} ({rate}%)
                     </TableCell>
                   </TableRow>
                 );

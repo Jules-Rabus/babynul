@@ -86,11 +86,12 @@ export function createTournament(players: TournamentPlayer[]): Tournament {
 
   // Propager les auto-byes au tour suivant
   const tournament: Tournament = { size, rounds, matches };
-  propagateAutoByes(tournament);
+  propagateWinners(tournament);
   return tournament;
 }
 
-function propagateAutoByes(t: Tournament) {
+// Propage les vainqueurs connus (byes automatiques OU choix manuels) tour par tour.
+function propagateWinners(t: Tournament) {
   for (let r = t.rounds; r >= 2; r--) {
     const currentRound = t.matches.filter((m) => m.round === r);
     for (const m of currentRound) {
@@ -110,17 +111,21 @@ export function setWinner(t: Tournament, matchId: string, winnerId: string | nul
   const winner = winnerId === match.p1?.id ? match.p1 : winnerId === match.p2?.id ? match.p2 : null;
   match.winner = winner;
 
-  // Nettoyer les tours suivants (si on change un résultat, les tours d'après sont peut-être obsolètes)
+  // Invalider uniquement les matchs ultérieurs qui dépendaient de ce match-ci.
+  // (On nettoie le slot cible du match modifié et cascade depuis là.)
   for (let r = match.round - 1; r >= 1; r--) {
-    for (const m of matches.filter((x) => x.round === r)) {
-      m.p1 = null;
-      m.p2 = null;
-      m.winner = null;
+    const targetSlot = Math.floor(match.slot / Math.pow(2, match.round - r));
+    const affected = matches.find((x) => x.round === r && x.slot === targetSlot);
+    if (affected) {
+      affected.p1 = null;
+      affected.p2 = null;
+      affected.winner = null;
     }
   }
 
   const nextTournament: Tournament = { ...t, matches };
-  propagateAutoByes(nextTournament);
+  // Reconstruit p1/p2/winner des tours suivants depuis les vainqueurs toujours valides
+  propagateWinners(nextTournament);
   return nextTournament;
 }
 
