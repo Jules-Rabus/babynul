@@ -41,6 +41,57 @@ export function PlayerModal({
     return m;
   }, [players]);
 
+  const relations = useMemo(() => {
+    if (!player) return null;
+    const partner = new Map<string, { wins: number; losses: number }>();
+    const opponent = new Map<string, { wins: number; losses: number }>();
+    const bump = (map: Map<string, { wins: number; losses: number }>, id: string, won: boolean) => {
+      const prev = map.get(id) ?? { wins: 0, losses: 0 };
+      if (won) prev.wins++; else prev.losses++;
+      map.set(id, prev);
+    };
+    for (const m of matches) {
+      if (m.mode !== "team") continue;
+      const onA = m.player_a1_id === player.id || m.player_a2_id === player.id;
+      const myTeam = onA
+        ? [m.player_a1_id, m.player_a2_id]
+        : [m.player_b1_id, m.player_b2_id];
+      const oppTeam = onA
+        ? [m.player_b1_id, m.player_b2_id]
+        : [m.player_a1_id, m.player_a2_id];
+      const won = (onA && m.winner_side === "A") || (!onA && m.winner_side === "B");
+      const partnerId = myTeam.find((id) => id && id !== player.id);
+      if (partnerId) bump(partner, partnerId, won);
+      for (const id of oppTeam) {
+        if (id) bump(opponent, id, won);
+      }
+    }
+
+    const toSorted = (map: Map<string, { wins: number; losses: number }>, type: "partner" | "nemesis") => {
+      return Array.from(map.entries())
+        .map(([id, { wins, losses }]) => ({ id, wins, losses, total: wins + losses }))
+        .filter((e) => e.total >= 2)
+        .sort((a, b) => {
+          if (type === "partner") {
+            const winRateA = a.wins / a.total;
+            const winRateB = b.wins / b.total;
+            if (winRateA !== winRateB) return winRateB - winRateA;
+            return b.total - a.total;
+          } else {
+            const lossRateA = a.losses / a.total;
+            const lossRateB = b.losses / b.total;
+            if (lossRateA !== lossRateB) return lossRateB - lossRateA;
+            return b.total - a.total;
+          }
+        });
+    };
+
+    return {
+      bestPartner: toSorted(partner, "partner")[0] ?? null,
+      nemesis: toSorted(opponent, "nemesis")[0] ?? null,
+    };
+  }, [matches, player]);
+
   const eloSeries = useMemo(() => {
     if (!player) return [];
     // Reconstruit l'évolution de l'Elo depuis le début en partant de la fin (ordre chronologique)
@@ -86,6 +137,25 @@ export function PlayerModal({
             </div>
           </div>
         </DialogHeader>
+
+        {relations && (relations.bestPartner || relations.nemesis) && (
+          <section className="grid gap-3 sm:grid-cols-2">
+            <RelationCard
+              label="Coéquipier favori"
+              emoji="🤝"
+              entry={relations.bestPartner}
+              playerMap={playerMap}
+              metric="winrate"
+            />
+            <RelationCard
+              label="Némésis"
+              emoji="⚔️"
+              entry={relations.nemesis}
+              playerMap={playerMap}
+              metric="lossrate"
+            />
+          </section>
+        )}
 
         <section>
           <h3 className="mb-2 text-sm font-semibold">Évolution de l&apos;Elo</h3>
@@ -150,6 +220,49 @@ export function PlayerModal({
 function deltaFor(match: MatchRow, playerId: string) {
   const onA = match.player_a1_id === playerId || match.player_a2_id === playerId;
   return onA ? match.elo_delta_a : match.elo_delta_b;
+}
+
+function RelationCard({
+  label,
+  emoji,
+  entry,
+  playerMap,
+  metric,
+}: {
+  label: string;
+  emoji: string;
+  entry: { id: string; wins: number; losses: number; total: number } | null;
+  playerMap: Map<string, PlayerRow>;
+  metric: "winrate" | "lossrate";
+}) {
+  if (!entry) {
+    return (
+      <div className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">
+        <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide">
+          <span>{emoji}</span>
+          <span>{label}</span>
+        </div>
+        <p className="text-sm">Pas encore assez de matchs 2v2.</p>
+      </div>
+    );
+  }
+  const p = playerMap.get(entry.id);
+  const name = p?.first_name ?? "?";
+  const rate = metric === "winrate" ? entry.wins / entry.total : entry.losses / entry.total;
+  return (
+    <div className="rounded-xl bg-muted/40 p-3">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span>{emoji}</span>
+        <span>{label}</span>
+      </div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-base font-semibold">{name}</span>
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {Math.round(rate * 100)}% ({entry.wins}V / {entry.losses}D)
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function MatchRowItem({

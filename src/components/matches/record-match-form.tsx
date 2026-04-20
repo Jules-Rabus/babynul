@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePlayers } from "@/lib/queries/players";
 import { useRecordMatch } from "@/lib/queries/matches";
 import { useAdmin } from "@/components/admin-context";
+import { UndoLastMatch } from "./undo-last-match";
+import { expectedScore } from "@/lib/elo";
 import { toast } from "sonner";
+import { fireVictoryEffects } from "@/lib/effects";
 
 type Mode = "individual" | "team";
 
@@ -81,6 +84,7 @@ export function RecordMatchForm() {
         scoreB: sB,
       });
       toast.success("Match enregistré.");
+      void fireVictoryEffects();
       reset();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
@@ -93,10 +97,28 @@ export function RecordMatchForm() {
     </SelectItem>
   ));
 
+  const prediction = useMemo(() => {
+    const byId = new Map(players.map((p) => [p.id, p.elo]));
+    const eloFor = (ids: string[]) => {
+      const values = ids.map((id) => byId.get(id)).filter((v): v is number => typeof v === "number");
+      if (values.length === 0) return null;
+      return Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+    };
+    const teamAIds = mode === "individual" ? [a1] : [a1, a2];
+    const teamBIds = mode === "individual" ? [b1] : [b1, b2];
+    if (teamAIds.some((x) => !x) || teamBIds.some((x) => !x)) return null;
+    const eloA = eloFor(teamAIds);
+    const eloB = eloFor(teamBIds);
+    if (eloA === null || eloB === null) return null;
+    const probA = expectedScore(eloA, eloB);
+    return { eloA, eloB, probA, probB: 1 - probA };
+  }, [players, mode, a1, a2, b1, b2]);
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
         <CardTitle>Saisir un match</CardTitle>
+        <UndoLastMatch />
       </CardHeader>
       <CardContent>
         {!unlocked && (
@@ -170,6 +192,31 @@ export function RecordMatchForm() {
               </div>
             </div>
           </div>
+
+          {prediction && (
+            <div className="rounded-xl bg-muted/50 p-3 text-sm">
+              <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
+                <span>Prédiction avant match</span>
+                <span className="tabular-nums">
+                  {prediction.eloA} vs {prediction.eloB}
+                </span>
+              </div>
+              <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="bg-primary transition-all"
+                  style={{ width: `${prediction.probA * 100}%` }}
+                />
+                <div
+                  className="bg-accent transition-all"
+                  style={{ width: `${prediction.probB * 100}%` }}
+                />
+              </div>
+              <div className="mt-1 flex justify-between text-xs font-medium">
+                <span>Équipe A — {Math.round(prediction.probA * 100)}%</span>
+                <span>Équipe B — {Math.round(prediction.probB * 100)}%</span>
+              </div>
+            </div>
+          )}
 
           <Button type="submit" size="lg" disabled={!unlocked || record.isPending} className="w-full">
             {record.isPending ? "Enregistrement..." : "Enregistrer le match"}

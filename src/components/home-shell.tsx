@@ -9,6 +9,8 @@ import { TeamsRanking } from "@/components/ranking/teams-ranking";
 import { RecordMatchForm } from "@/components/matches/record-match-form";
 import { MatchmakingPanel } from "@/components/matchmaking/matchmaking-panel";
 import { PlayersTable } from "@/components/players-admin/players-table";
+import { TournamentPanel } from "@/components/tournament/tournament-panel";
+import { BetsPanel } from "@/components/bets/bets-panel";
 
 export function HomeShell({ unlocked }: { unlocked: boolean }) {
   return (
@@ -36,6 +38,8 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
                 <TabsTrigger value="ranking">Classement</TabsTrigger>
                 <TabsTrigger value="record">Saisir un match</TabsTrigger>
                 <TabsTrigger value="matchmaking">Matchmaking</TabsTrigger>
+                <TabsTrigger value="tournament">Tournoi</TabsTrigger>
+                <TabsTrigger value="bets">Paris</TabsTrigger>
                 <TabsTrigger value="players">Joueurs</TabsTrigger>
               </TabsList>
             </div>
@@ -53,6 +57,14 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
 
             <TabsContent value="matchmaking">
               <MatchmakingPanel />
+            </TabsContent>
+
+            <TabsContent value="tournament">
+              <TournamentPanel />
+            </TabsContent>
+
+            <TabsContent value="bets">
+              <BetsPanel />
             </TabsContent>
 
             <TabsContent value="players">
