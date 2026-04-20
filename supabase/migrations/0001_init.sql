@@ -7,7 +7,6 @@ create table if not exists public.players (
   id uuid primary key default gen_random_uuid(),
   auth_user_id uuid unique references auth.users(id) on delete set null,
   first_name text not null,
-  last_name text not null,
   elo integer not null default 1000,
   games_played integer not null default 0,
   created_at timestamptz not null default now()
@@ -15,7 +14,7 @@ create table if not exists public.players (
 
 create index if not exists players_auth_user_id_idx on public.players (auth_user_id);
 create index if not exists players_elo_idx on public.players (elo desc);
-create index if not exists players_search_idx on public.players (lower(first_name || ' ' || last_name));
+create index if not exists players_search_idx on public.players (lower(first_name));
 
 create table if not exists public.teams (
   id uuid primary key default gen_random_uuid(),

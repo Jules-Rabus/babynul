@@ -28,29 +28,26 @@ const PRESET_LABELS: Record<EloPreset, string> = {
 export function AddPlayerDialog() {
   const [open, setOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [preset, setPreset] = useState<EloPreset>("moyen");
   const addPlayer = useAddPlayer();
 
   const reset = () => {
     setFirstName("");
-    setLastName("");
     setPreset("moyen");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      toast.error("Prénom et nom requis.");
+    if (!firstName.trim()) {
+      toast.error("Prénom requis.");
       return;
     }
     try {
       await addPlayer.mutateAsync({
         first_name: firstName.trim(),
-        last_name: lastName.trim(),
         elo: ELO_PRESETS[preset],
       });
-      toast.success(`${firstName} ${lastName} ajouté.`);
+      toast.success(`${firstName} ajouté.`);
       reset();
       setOpen(false);
     } catch (err) {
@@ -72,15 +69,9 @@ export function AddPlayerDialog() {
           <DialogDescription>Choisissez un niveau de départ. L&apos;Elo évoluera avec les parties.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="fn">Prénom</Label>
-              <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ln">Nom</Label>
-              <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="fn">Prénom</Label>
+            <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
           </div>
 
           <div className="space-y-2">

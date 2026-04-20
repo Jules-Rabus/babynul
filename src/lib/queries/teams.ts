@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { TeamRow, PlayerRow } from "@/lib/supabase/types";
 
 export type TeamWithPlayers = TeamRow & {
-  player1: Pick<PlayerRow, "id" | "first_name" | "last_name"> | null;
-  player2: Pick<PlayerRow, "id" | "first_name" | "last_name"> | null;
+  player1: Pick<PlayerRow, "id" | "first_name"> | null;
+  player2: Pick<PlayerRow, "id" | "first_name"> | null;
 };
 
 export const TEAMS_KEY = ["teams"] as const;
@@ -19,7 +19,7 @@ export function useTeams() {
       const { data, error } = await supabase
         .from("teams")
         .select(
-          "*, player1:players!teams_player1_id_fkey(id, first_name, last_name), player2:players!teams_player2_id_fkey(id, first_name, last_name)",
+          "*, player1:players!teams_player1_id_fkey(id, first_name), player2:players!teams_player2_id_fkey(id, first_name)",
         )
         .order("elo", { ascending: false });
       if (error) throw error;

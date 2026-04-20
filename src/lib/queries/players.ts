@@ -24,11 +24,11 @@ export function usePlayers() {
 export function useAddPlayer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { first_name: string; last_name: string; elo: number }) => {
+    mutationFn: async (input: { first_name: string; elo: number }) => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("players")
-        .insert([{ first_name: input.first_name, last_name: input.last_name, elo: input.elo }])
+        .insert([{ first_name: input.first_name, elo: input.elo }])
         .select()
         .single();
       if (error) throw error;

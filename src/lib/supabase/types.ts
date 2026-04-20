@@ -14,7 +14,6 @@ export type Database = {
           id: string;
           auth_user_id: string | null;
           first_name: string;
-          last_name: string;
           elo: number;
           games_played: number;
           created_at: string;
@@ -23,7 +22,6 @@ export type Database = {
           id?: string;
           auth_user_id?: string | null;
           first_name: string;
-          last_name: string;
           elo?: number;
           games_played?: number;
           created_at?: string;
@@ -32,7 +30,6 @@ export type Database = {
           id?: string;
           auth_user_id?: string | null;
           first_name?: string;
-          last_name?: string;
           elo?: number;
           games_played?: number;
           created_at?: string;

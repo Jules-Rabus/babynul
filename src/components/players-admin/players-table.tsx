@@ -18,15 +18,15 @@ import { Trash2 } from "lucide-react";
 import { useDeletePlayer, usePlayers } from "@/lib/queries/players";
 import { AddPlayerDialog } from "./add-player-dialog";
 import { SortHeader, type SortDir } from "@/components/ranking/sort-header";
-import { fullName, initials } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 import type { PlayerRow } from "@/lib/supabase/types";
-import { useSession } from "@/hooks/use-session";
+import { useAdmin } from "@/components/admin-context";
 import { toast } from "sonner";
 
 type SortCol = "name" | "games" | "elo";
 
 export function PlayersTable() {
-  const { user } = useSession();
+  const { unlocked } = useAdmin();
   const { data: players = [], isLoading } = usePlayers();
   const deletePlayer = useDeletePlayer();
   const [search, setSearch] = useState("");
@@ -38,13 +38,13 @@ export function PlayersTable() {
     const q = search.trim().toLowerCase();
     const sign = sortDir === "asc" ? 1 : -1;
     return players
-      .filter((p) => (q ? fullName(p.first_name, p.last_name).toLowerCase().includes(q) : true))
+      .filter((p) => (q ? p.first_name.toLowerCase().includes(q) : true))
       .sort((a, b) => {
         switch (sortBy) {
           case "name":
             return (
               sign *
-              fullName(a.first_name, a.last_name).localeCompare(fullName(b.first_name, b.last_name), "fr")
+              a.first_name.localeCompare(b.first_name, "fr")
             );
           case "games":
             return sign * (a.games_played - b.games_played);
@@ -67,7 +67,7 @@ export function PlayersTable() {
     if (!toDelete) return;
     try {
       await deletePlayer.mutateAsync(toDelete.id);
-      toast.success(`${fullName(toDelete.first_name, toDelete.last_name)} supprimé.`);
+      toast.success(`${toDelete.first_name} supprimé.`);
       setToDelete(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression.");
@@ -82,7 +82,7 @@ export function PlayersTable() {
             <CardTitle>Joueurs</CardTitle>
             <CardDescription>Gestion complète (ajouter, rechercher, supprimer).</CardDescription>
           </div>
-          {user && <AddPlayerDialog />}
+          {unlocked && <AddPlayerDialog />}
         </CardHeader>
         <CardContent className="space-y-3">
           <Input
@@ -120,9 +120,9 @@ export function PlayersTable() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
-                          <AvatarFallback>{initials(p.first_name, p.last_name)}</AvatarFallback>
+                          <AvatarFallback>{initials(p.first_name)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{fullName(p.first_name, p.last_name)}</span>
+                        <span className="font-medium">{p.first_name}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -130,12 +130,12 @@ export function PlayersTable() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums font-semibold">{p.elo}</TableCell>
                     <TableCell>
-                      {user && (
+                      {unlocked && (
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => setToDelete(p)}
-                          aria-label={`Supprimer ${fullName(p.first_name, p.last_name)}`}
+                          aria-label={`Supprimer ${p.first_name}`}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -156,7 +156,7 @@ export function PlayersTable() {
             <DialogDescription>
               {toDelete && (
                 <>
-                  <strong>{fullName(toDelete.first_name, toDelete.last_name)}</strong> sera supprimé
+                  <strong>{toDelete.first_name}</strong> sera supprimé
                   définitivement, ainsi que toutes ses équipes et tous les matchs auxquels il a participé.
                   Cette action est irréversible.
                 </>

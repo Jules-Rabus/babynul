@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { usePlayerMatches } from "@/lib/queries/matches";
 import { usePlayers } from "@/lib/queries/players";
-import { fullName, initials } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 import type { PlayerRow, MatchRow } from "@/lib/supabase/types";
 import { useMemo } from "react";
 import {
@@ -74,11 +74,11 @@ export function PlayerModal({
           <div className="flex items-center gap-4">
             <Avatar className="h-14 w-14">
               <AvatarFallback className="text-lg">
-                {initials(player.first_name, player.last_name)}
+                {initials(player.first_name)}
               </AvatarFallback>
             </Avatar>
             <div>
-              <DialogTitle className="text-2xl">{fullName(player.first_name, player.last_name)}</DialogTitle>
+              <DialogTitle className="text-2xl">{player.first_name}</DialogTitle>
               <DialogDescription className="flex items-center gap-2 pt-1">
                 <Badge>{player.elo} Elo</Badge>
                 <span>{player.games_played} parties</span>
@@ -178,7 +178,7 @@ function MatchRowItem({
       .filter(Boolean)
       .map((id) => {
         const p = playerMap.get(id as string);
-        return p ? `${p.first_name[0]}. ${p.last_name}` : "?";
+        return p ? p.first_name : "?";
       })
       .join(" & ");
   };

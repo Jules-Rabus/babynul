@@ -5,10 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function initials(firstName: string, lastName: string) {
-  return `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase() || "??";
-}
-
-export function fullName(firstName: string, lastName: string) {
-  return `${firstName} ${lastName}`.trim();
+export function initials(name: string) {
+  const clean = (name ?? "").trim();
+  if (!clean) return "??";
+  const parts = clean.split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }

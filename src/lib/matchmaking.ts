@@ -1,6 +1,6 @@
 import type { PlayerRow } from "@/lib/supabase/types";
 
-export type MatchmakingPlayer = Pick<PlayerRow, "id" | "first_name" | "last_name" | "elo" | "games_played">;
+export type MatchmakingPlayer = Pick<PlayerRow, "id" | "first_name" | "elo" | "games_played">;
 
 export type ProposedTeam = {
   players: [MatchmakingPlayer, MatchmakingPlayer];

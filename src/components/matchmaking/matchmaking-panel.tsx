@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { usePlayers } from "@/lib/queries/players";
 import { generateMatches, type ProposedMatch } from "@/lib/matchmaking";
-import { fullName } from "@/lib/utils";
 import { Shuffle, Users } from "lucide-react";
 
 export function MatchmakingPanel() {
@@ -20,7 +19,7 @@ export function MatchmakingPanel() {
     const q = search.trim().toLowerCase();
     if (!q) return players;
     return players.filter((p) =>
-      fullName(p.first_name, p.last_name).toLowerCase().includes(q),
+      p.first_name.toLowerCase().includes(q),
     );
   }, [players, search]);
 
@@ -73,7 +72,7 @@ export function MatchmakingPanel() {
                       : "bg-muted text-foreground hover:bg-muted/80",
                   ].join(" ")}
                 >
-                  {fullName(p.first_name, p.last_name)}
+                  {p.first_name}
                   <span className="text-xs opacity-70">{p.elo}</span>
                 </button>
               );
@@ -135,7 +134,7 @@ function TeamLabel({ team }: { team: ProposedMatch["teamA"] }) {
   return (
     <div className="text-sm">
       <div className="font-medium">
-        {fullName(a.first_name, a.last_name)} & {fullName(b.first_name, b.last_name)}
+        {a.first_name} & {b.first_name}
       </div>
       <div className="text-xs text-muted-foreground">Elo moyen {team.avgElo}</div>
     </div>

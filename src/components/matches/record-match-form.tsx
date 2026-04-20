@@ -8,14 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePlayers } from "@/lib/queries/players";
 import { useRecordMatch } from "@/lib/queries/matches";
-import { useSession } from "@/hooks/use-session";
-import { fullName } from "@/lib/utils";
+import { useAdmin } from "@/components/admin-context";
 import { toast } from "sonner";
 
 type Mode = "individual" | "team";
 
 export function RecordMatchForm() {
-  const { user } = useSession();
+  const { unlocked } = useAdmin();
   const { data: players = [] } = usePlayers();
   const record = useRecordMatch();
 
@@ -38,8 +37,8 @@ export function RecordMatchForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast.error("Connectez-vous pour enregistrer un match.");
+    if (!unlocked) {
+      toast.error("Entrez le code admin pour enregistrer un match.");
       return;
     }
 
@@ -90,7 +89,7 @@ export function RecordMatchForm() {
 
   const playerOptions = players.map((p) => (
     <SelectItem key={p.id} value={p.id}>
-      {fullName(p.first_name, p.last_name)} ({p.elo})
+      {p.first_name} ({p.elo})
     </SelectItem>
   ));
 
@@ -100,9 +99,10 @@ export function RecordMatchForm() {
         <CardTitle>Saisir un match</CardTitle>
       </CardHeader>
       <CardContent>
-        {!user && (
+        {!unlocked && (
           <p className="mb-4 rounded-md bg-muted p-3 text-sm text-muted-foreground">
-            Connectez-vous pour enregistrer des résultats.
+            Cliquez sur <span className="font-semibold">Débloquer</span> en haut et entrez le code admin
+            pour enregistrer des résultats.
           </p>
         )}
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -171,7 +171,7 @@ export function RecordMatchForm() {
             </div>
           </div>
 
-          <Button type="submit" size="lg" disabled={!user || record.isPending} className="w-full">
+          <Button type="submit" size="lg" disabled={!unlocked || record.isPending} className="w-full">
             {record.isPending ? "Enregistrement..." : "Enregistrer le match"}
           </Button>
         </form>

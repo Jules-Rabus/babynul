@@ -8,7 +8,7 @@ import { usePlayers } from "@/lib/queries/players";
 import { SortHeader, type SortDir } from "./sort-header";
 import { Medal } from "./medal";
 import { PlayerModal } from "./player-modal";
-import { fullName, initials } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 import type { PlayerRow } from "@/lib/supabase/types";
 
 type SortCol = "rank" | "name" | "games" | "elo";
@@ -35,7 +35,7 @@ export function PlayersRanking() {
         case "rank":
           return sign * ((globalRank.get(a.id) ?? 0) - (globalRank.get(b.id) ?? 0));
         case "name":
-          return sign * fullName(a.first_name, a.last_name).localeCompare(fullName(b.first_name, b.last_name), "fr");
+          return sign * a.first_name.localeCompare(b.first_name, "fr");
         case "games":
           return sign * (a.games_played - b.games_played);
         case "elo":
@@ -110,9 +110,9 @@ export function PlayersRanking() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
-                          <AvatarFallback>{initials(p.first_name, p.last_name)}</AvatarFallback>
+                          <AvatarFallback>{initials(p.first_name)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{fullName(p.first_name, p.last_name)}</span>
+                        <span className="font-medium">{p.first_name}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">

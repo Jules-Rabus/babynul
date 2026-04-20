@@ -6,13 +6,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTeams, type TeamWithPlayers } from "@/lib/queries/teams";
 import { SortHeader, type SortDir } from "./sort-header";
 import { Medal } from "./medal";
-import { fullName } from "@/lib/utils";
-
 type SortCol = "rank" | "name" | "games" | "elo";
 
 function teamLabel(t: TeamWithPlayers) {
-  const a = t.player1 ? fullName(t.player1.first_name, t.player1.last_name) : "?";
-  const b = t.player2 ? fullName(t.player2.first_name, t.player2.last_name) : "?";
+  const a = t.player1?.first_name ?? "?";
+  const b = t.player2?.first_name ?? "?";
   return `${a} & ${b}`;
 }
 
