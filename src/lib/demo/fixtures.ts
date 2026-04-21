@@ -1,0 +1,54 @@
+export type DemoPlayer = {
+  id: string;
+  first_name: string;
+  nickname: string | null;
+  elo: number;
+  games_played: number;
+};
+
+export type DemoMatch = {
+  id: string;
+  teamA: string[];
+  teamB: string[];
+  score_a: number;
+  score_b: number;
+  winner_side: "A" | "B";
+  played_at: string;
+};
+
+export const DEMO_PLAYERS: DemoPlayer[] = [
+  { id: "p1", first_name: "Jules", nickname: "Le Boss", elo: 1240, games_played: 42 },
+  { id: "p2", first_name: "Marie", nickname: "La Machine", elo: 1205, games_played: 38 },
+  { id: "p3", first_name: "Nico", nickname: null, elo: 1180, games_played: 31 },
+  { id: "p4", first_name: "Léa", nickname: "Sniper", elo: 1172, games_played: 29 },
+  { id: "p5", first_name: "Tom", nickname: "Le Goat", elo: 1160, games_played: 27 },
+  { id: "p6", first_name: "Sarah", nickname: null, elo: 1085, games_played: 20 },
+  { id: "p7", first_name: "Alex", nickname: "Zizou", elo: 1060, games_played: 18 },
+  { id: "p8", first_name: "Emma", nickname: null, elo: 1020, games_played: 14 },
+  { id: "p9", first_name: "Raph", nickname: "Le Poulain", elo: 985, games_played: 9 },
+  { id: "p10", first_name: "Clara", nickname: null, elo: 960, games_played: 7 },
+  { id: "p11", first_name: "Max", nickname: "Le Rookie", elo: 940, games_played: 5 },
+  { id: "p12", first_name: "Inès", nickname: null, elo: 905, games_played: 3 },
+];
+
+const now = Date.now();
+const iso = (daysAgo: number, minutesAgo = 0) =>
+  new Date(now - daysAgo * 86400000 - minutesAgo * 60000).toISOString();
+
+export const DEMO_MATCHES: DemoMatch[] = [
+  { id: "m1", teamA: ["p1"], teamB: ["p2"], score_a: 10, score_b: 8, winner_side: "A", played_at: iso(0, 15) },
+  { id: "m2", teamA: ["p3"], teamB: ["p5"], score_a: 7, score_b: 10, winner_side: "B", played_at: iso(0, 45) },
+  { id: "m3", teamA: ["p4"], teamB: ["p7"], score_a: 10, score_b: 5, winner_side: "A", played_at: iso(0, 90) },
+  { id: "m4", teamA: ["p1"], teamB: ["p6"], score_a: 10, score_b: 3, winner_side: "A", played_at: iso(1) },
+  { id: "m5", teamA: ["p2"], teamB: ["p8"], score_a: 10, score_b: 6, winner_side: "A", played_at: iso(1, 60) },
+  { id: "m6", teamA: ["p9"], teamB: ["p12"], score_a: 10, score_b: 2, winner_side: "A", played_at: iso(2) },
+  { id: "m7", teamA: ["p5"], teamB: ["p11"], score_a: 10, score_b: 7, winner_side: "A", played_at: iso(2, 120) },
+  { id: "m8", teamA: ["p4"], teamB: ["p10"], score_a: 10, score_b: 4, winner_side: "A", played_at: iso(3) },
+];
+
+export const DEMO_SESSION = {
+  id: "s-demo",
+  label: `Soirée du ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}`,
+  started_at: iso(0, 120),
+  participants: DEMO_PLAYERS.slice(0, 8),
+};

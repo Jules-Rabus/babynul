@@ -17,15 +17,15 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
   return (
     <AdminProvider unlocked={unlocked}>
       <main className="min-h-screen">
-        <header className="border-0 bg-card/50 backdrop-blur-sm">
-          <div className="container flex items-center justify-between gap-4 py-4">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Babynul !</h1>
-              <p className="text-sm text-muted-foreground">
+        <header className="border-0 bg-card/50 backdrop-blur-sm pt-[env(safe-area-inset-top)]">
+          <div className="container flex flex-wrap items-center justify-between gap-3 py-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Babynul !</h1>
+              <p className="hidden text-sm text-muted-foreground sm:block">
                 Gestion des parties de Baby-Foot entre collègues
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <IdentityPicker />
               <ThemeToggle />
               <AdminButton />

@@ -24,17 +24,41 @@ export function usePlayers() {
 export function useAddPlayer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { first_name: string; elo: number }) => {
+    mutationFn: async (input: { first_name: string; elo: number; nickname?: string | null }) => {
       const supabase = createClient();
+      const nick = input.nickname?.trim() || null;
       const { data, error } = await supabase
         .from("players")
-        .insert([{ first_name: input.first_name, elo: input.elo }])
+        .insert([{ first_name: input.first_name, elo: input.elo, nickname: nick }])
         .select()
         .single();
       if (error) throw error;
       return data as PlayerRow;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: PLAYERS_KEY }),
+  });
+}
+
+export function useUpdatePlayerNickname() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; nickname: string | null }) => {
+      const supabase = createClient();
+      const nick = input.nickname?.trim() || null;
+      const { data, error } = await supabase
+        .from("players")
+        .update({ nickname: nick })
+        .eq("id", input.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as PlayerRow;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PLAYERS_KEY });
+      qc.invalidateQueries({ queryKey: ["teams"] });
+      qc.invalidateQueries({ queryKey: ["matches"] });
+    },
   });
 }
 

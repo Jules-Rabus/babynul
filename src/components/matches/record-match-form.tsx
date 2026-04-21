@@ -11,6 +11,7 @@ import { useRecordMatch } from "@/lib/queries/matches";
 import { useAdmin } from "@/components/admin-context";
 import { UndoLastMatch } from "./undo-last-match";
 import { expectedScore } from "@/lib/elo";
+import { displayName } from "@/lib/player-display";
 import { toast } from "sonner";
 import { fireVictoryEffects } from "@/lib/effects";
 
@@ -93,7 +94,7 @@ export function RecordMatchForm() {
 
   const playerOptions = players.map((p) => (
     <SelectItem key={p.id} value={p.id}>
-      {p.first_name} ({p.elo})
+      {displayName(p)} ({p.elo})
     </SelectItem>
   ));
 
@@ -161,10 +162,11 @@ export function RecordMatchForm() {
                 <Input
                   id="scoreA"
                   type="number"
+                  inputMode="numeric"
                   min="0"
                   value={scoreA}
                   onChange={(e) => setScoreA(e.target.value)}
-                  className="mt-1"
+                  className="mt-1 h-11 text-lg tabular-nums"
                 />
               </div>
             </div>
@@ -184,10 +186,11 @@ export function RecordMatchForm() {
                 <Input
                   id="scoreB"
                   type="number"
+                  inputMode="numeric"
                   min="0"
                   value={scoreB}
                   onChange={(e) => setScoreB(e.target.value)}
-                  className="mt-1"
+                  className="mt-1 h-11 text-lg tabular-nums"
                 />
               </div>
             </div>

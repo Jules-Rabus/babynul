@@ -14,6 +14,7 @@ import { useCurrentPlayer } from "@/hooks/use-current-player";
 import { usePlayers } from "@/lib/queries/players";
 import { useState } from "react";
 import { cn, initials } from "@/lib/utils";
+import { displayName } from "@/lib/player-display";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function IdentityPicker() {
@@ -28,7 +29,7 @@ export function IdentityPicker() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <UserCircle className="h-4 w-4" />
-          <span className="hidden sm:inline">{me ? me.first_name : "Qui êtes-vous ?"}</span>
+          <span className="hidden sm:inline">{me ? displayName(me) : "Qui êtes-vous ?"}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
@@ -61,7 +62,7 @@ export function IdentityPicker() {
                     {initials(p.first_name)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="truncate text-sm font-medium">{p.first_name}</span>
+                <span className="truncate text-sm font-medium">{displayName(p)}</span>
               </button>
             );
           })}

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePlayerMatches } from "@/lib/queries/matches";
 import { usePlayers } from "@/lib/queries/players";
 import { initials } from "@/lib/utils";
+import { displayName } from "@/lib/player-display";
 import type { PlayerRow, MatchRow } from "@/lib/supabase/types";
 import { useMemo } from "react";
 import {
@@ -129,7 +130,7 @@ export function PlayerModal({
               </AvatarFallback>
             </Avatar>
             <div>
-              <DialogTitle className="text-2xl">{player.first_name}</DialogTitle>
+              <DialogTitle className="text-2xl">{displayName(player)}</DialogTitle>
               <DialogDescription className="flex items-center gap-2 pt-1">
                 <Badge>{player.elo} Elo</Badge>
                 <span>{player.games_played} parties</span>
@@ -247,7 +248,7 @@ function RelationCard({
     );
   }
   const p = playerMap.get(entry.id);
-  const name = p?.first_name ?? "?";
+  const name = p ? displayName(p) : "?";
   const rate = metric === "winrate" ? entry.wins / entry.total : entry.losses / entry.total;
   return (
     <div className="rounded-xl bg-muted/40 p-3">
@@ -291,7 +292,7 @@ function MatchRowItem({
       .filter(Boolean)
       .map((id) => {
         const p = playerMap.get(id as string);
-        return p ? p.first_name : "?";
+        return p ? displayName(p) : "?";
       })
       .join(" & ");
   };

@@ -14,6 +14,7 @@ export type Database = {
           id: string;
           auth_user_id: string | null;
           first_name: string;
+          nickname: string | null;
           elo: number;
           games_played: number;
           wager_balance: number;
@@ -27,6 +28,7 @@ export type Database = {
           id?: string;
           auth_user_id?: string | null;
           first_name: string;
+          nickname?: string | null;
           elo?: number;
           games_played?: number;
           wager_balance?: number;
@@ -40,6 +42,7 @@ export type Database = {
           id?: string;
           auth_user_id?: string | null;
           first_name?: string;
+          nickname?: string | null;
           elo?: number;
           games_played?: number;
           wager_balance?: number;
@@ -97,6 +100,7 @@ export type Database = {
           team_elo_delta_b: number | null;
           played_at: string;
           recorded_by: string | null;
+          session_id: string | null;
         };
         Insert: {
           id?: string;
@@ -116,6 +120,7 @@ export type Database = {
           team_elo_delta_b?: number | null;
           played_at?: string;
           recorded_by?: string | null;
+          session_id?: string | null;
         };
         Update: {
           id?: string;
@@ -135,6 +140,55 @@ export type Database = {
           team_elo_delta_b?: number | null;
           played_at?: string;
           recorded_by?: string | null;
+          session_id?: string | null;
+        };
+        Relationships: [];
+      };
+      play_sessions: {
+        Row: {
+          id: string;
+          label: string | null;
+          status: "active" | "ended";
+          started_at: string;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          label?: string | null;
+          status?: "active" | "ended";
+          started_at?: string;
+          ended_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          label?: string | null;
+          status?: "active" | "ended";
+          started_at?: string;
+          ended_at?: string | null;
+        };
+        Relationships: [];
+      };
+      session_players: {
+        Row: {
+          session_id: string;
+          player_id: string;
+          is_present: boolean;
+          joined_at: string;
+          left_at: string | null;
+        };
+        Insert: {
+          session_id: string;
+          player_id: string;
+          is_present?: boolean;
+          joined_at?: string;
+          left_at?: string | null;
+        };
+        Update: {
+          session_id?: string;
+          player_id?: string;
+          is_present?: boolean;
+          joined_at?: string;
+          left_at?: string | null;
         };
         Relationships: [];
       };
@@ -158,3 +212,5 @@ export type Database = {
 export type PlayerRow = Database["public"]["Tables"]["players"]["Row"];
 export type TeamRow = Database["public"]["Tables"]["teams"]["Row"];
 export type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
+export type PlaySessionRow = Database["public"]["Tables"]["play_sessions"]["Row"];
+export type SessionPlayerRow = Database["public"]["Tables"]["session_players"]["Row"];

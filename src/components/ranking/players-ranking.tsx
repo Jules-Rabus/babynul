@@ -9,6 +9,7 @@ import { SortHeader, type SortDir } from "./sort-header";
 import { Medal } from "./medal";
 import { PlayerModal } from "./player-modal";
 import { initials } from "@/lib/utils";
+import { displayName } from "@/lib/player-display";
 import type { PlayerRow } from "@/lib/supabase/types";
 
 type SortCol = "rank" | "name" | "games" | "elo";
@@ -112,7 +113,7 @@ export function PlayersRanking() {
                         <Avatar className="h-9 w-9">
                           <AvatarFallback>{initials(p.first_name)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{p.first_name}</span>
+                        <span className="font-medium">{displayName(p)}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">

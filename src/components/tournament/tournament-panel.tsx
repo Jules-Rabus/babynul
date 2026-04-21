@@ -17,6 +17,7 @@ import {
 } from "@/lib/tournament";
 import { fireVictoryEffects } from "@/lib/effects";
 import { cn } from "@/lib/utils";
+import { displayName } from "@/lib/player-display";
 
 export function TournamentPanel() {
   const { data: players = [] } = usePlayers();
@@ -26,7 +27,13 @@ export function TournamentPanel() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? players.filter((p) => p.first_name.toLowerCase().includes(q)) : players;
+    return q
+      ? players.filter(
+          (p) =>
+            p.first_name.toLowerCase().includes(q) ||
+            (p.nickname ?? "").toLowerCase().includes(q),
+        )
+      : players;
   }, [players, search]);
 
   const toggle = (id: string) => {
@@ -92,7 +99,7 @@ export function TournamentPanel() {
                   on ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/80",
                 )}
               >
-                {p.first_name}
+                {displayName(p)}
                 <span className="text-xs opacity-70">{p.elo}</span>
               </button>
             );
@@ -136,7 +143,7 @@ function BracketView({
           </CardTitle>
           {champion && (
             <CardDescription className="flex items-center gap-2 pt-1">
-              <Badge variant="accent" className="text-sm">🏆 Champion : {champion.first_name}</Badge>
+              <Badge variant="accent" className="text-sm">🏆 Champion : {displayName(champion)}</Badge>
             </CardDescription>
           )}
         </div>
@@ -204,7 +211,7 @@ function BracketMatch({
         )}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate">{player.first_name}</span>
+          <span className="truncate">{displayName(player)}</span>
           <span className="shrink-0 text-xs opacity-70">{player.elo}</span>
         </div>
       </button>

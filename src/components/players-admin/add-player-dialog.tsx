@@ -28,11 +28,13 @@ const PRESET_LABELS: Record<EloPreset, string> = {
 export function AddPlayerDialog() {
   const [open, setOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [preset, setPreset] = useState<EloPreset>("moyen");
   const addPlayer = useAddPlayer();
 
   const reset = () => {
     setFirstName("");
+    setNickname("");
     setPreset("moyen");
   };
 
@@ -46,6 +48,7 @@ export function AddPlayerDialog() {
       await addPlayer.mutateAsync({
         first_name: firstName.trim(),
         elo: ELO_PRESETS[preset],
+        nickname: nickname.trim() || null,
       });
       toast.success(`${firstName} ajouté.`);
       reset();
@@ -72,6 +75,17 @@ export function AddPlayerDialog() {
           <div className="space-y-1.5">
             <Label htmlFor="fn">Prénom</Label>
             <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="nick">Surnom <span className="text-xs text-muted-foreground">(optionnel, utilisé dans les annonces vocales)</span></Label>
+            <Input
+              id="nick"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Le Goat, La Machine, Le Boss..."
+              maxLength={40}
+            />
           </div>
 
           <div className="space-y-2">

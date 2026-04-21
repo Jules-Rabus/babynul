@@ -29,6 +29,7 @@ import {
 import { usePlayers } from "@/lib/queries/players";
 import { eloOdds } from "@/lib/elo";
 import { cn } from "@/lib/utils";
+import { displayName, announceName } from "@/lib/player-display";
 import { toast } from "sonner";
 
 export function WagersPanel() {
@@ -95,7 +96,7 @@ function BettorHeader() {
           <Coins className="h-6 w-6 text-accent" />
           <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              Solde de {me.first_name}
+              Solde de {announceName(me)}
             </div>
             <div className="text-2xl font-bold tabular-nums">{me.wager_balance} pts</div>
           </div>
@@ -322,11 +323,12 @@ function BetForm({
           <Input
             id={`stake-${match.id}`}
             type="number"
+            inputMode="numeric"
             min="1"
             max={me?.wager_balance ?? undefined}
             value={stake}
             onChange={(e) => setStake(e.target.value)}
-            className="mt-1 h-9"
+            className="mt-1 h-10"
           />
         </div>
         <Button onClick={handleBet} disabled={place.isPending}>
@@ -410,7 +412,7 @@ function TipstersLeaderboard() {
                     <TableCell>
                       {i === 0 ? <Crown className="h-4 w-4 text-accent" /> : <span className="text-xs text-muted-foreground">#{i + 1}</span>}
                     </TableCell>
-                    <TableCell className="font-medium">{p.first_name}</TableCell>
+                    <TableCell className="font-medium">{displayName(p)}</TableCell>
                     <TableCell className="text-right tabular-nums">{p.wager_balance}</TableCell>
                     <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                       {p.wager_bets_won}/{p.wager_bets_placed} ({rate}%)
@@ -427,10 +429,12 @@ function TipstersLeaderboard() {
 }
 
 function labelFor(m: ProposedMatchWithPlayers, side: "A" | "B"): string {
+  const fmt = (p: { first_name: string; nickname?: string | null } | null | undefined) =>
+    p ? displayName(p) : "?";
   if (side === "A") {
-    if (m.mode === "individual") return m.team_a_p1_player?.first_name ?? "?";
-    return `${m.team_a_p1_player?.first_name ?? "?"} & ${m.team_a_p2_player?.first_name ?? "?"}`;
+    if (m.mode === "individual") return fmt(m.team_a_p1_player);
+    return `${fmt(m.team_a_p1_player)} & ${fmt(m.team_a_p2_player)}`;
   }
-  if (m.mode === "individual") return m.team_b_p1_player?.first_name ?? "?";
-  return `${m.team_b_p1_player?.first_name ?? "?"} & ${m.team_b_p2_player?.first_name ?? "?"}`;
+  if (m.mode === "individual") return fmt(m.team_b_p1_player);
+  return `${fmt(m.team_b_p1_player)} & ${fmt(m.team_b_p2_player)}`;
 }

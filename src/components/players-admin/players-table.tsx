@@ -14,11 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useDeletePlayer, usePlayers } from "@/lib/queries/players";
 import { AddPlayerDialog } from "./add-player-dialog";
+import { EditPlayerDialog } from "./edit-player-dialog";
 import { SortHeader, type SortDir } from "@/components/ranking/sort-header";
 import { initials } from "@/lib/utils";
+import { displayName } from "@/lib/player-display";
 import type { PlayerRow } from "@/lib/supabase/types";
 import { useAdmin } from "@/components/admin-context";
 import { toast } from "sonner";
@@ -33,12 +35,19 @@ export function PlayersTable() {
   const [sortBy, setSortBy] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [toDelete, setToDelete] = useState<PlayerRow | null>(null);
+  const [toEdit, setToEdit] = useState<PlayerRow | null>(null);
 
   const displayed = useMemo(() => {
     const q = search.trim().toLowerCase();
     const sign = sortDir === "asc" ? 1 : -1;
     return players
-      .filter((p) => (q ? p.first_name.toLowerCase().includes(q) : true))
+      .filter((p) => {
+        if (!q) return true;
+        return (
+          p.first_name.toLowerCase().includes(q) ||
+          (p.nickname ?? "").toLowerCase().includes(q)
+        );
+      })
       .sort((a, b) => {
         switch (sortBy) {
           case "name":
@@ -122,7 +131,12 @@ export function PlayersTable() {
                         <Avatar className="h-9 w-9">
                           <AvatarFallback>{initials(p.first_name)}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{p.first_name}</span>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{p.first_name}</span>
+                          {p.nickname && (
+                            <span className="text-xs text-muted-foreground">« {p.nickname} »</span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -131,14 +145,24 @@ export function PlayersTable() {
                     <TableCell className="text-right tabular-nums font-semibold">{p.elo}</TableCell>
                     <TableCell>
                       {unlocked && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setToDelete(p)}
-                          aria-label={`Supprimer ${p.first_name}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setToEdit(p)}
+                            aria-label={`Modifier le surnom de ${p.first_name}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setToDelete(p)}
+                            aria-label={`Supprimer ${displayName(p)}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -148,6 +172,8 @@ export function PlayersTable() {
           )}
         </CardContent>
       </Card>
+
+      <EditPlayerDialog player={toEdit} onClose={() => setToEdit(null)} />
 
       <Dialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <DialogContent>

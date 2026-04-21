@@ -1,6 +1,6 @@
 import type { MatchRow, PlayerRow } from "@/lib/supabase/types";
 
-export type RivalryPlayer = Pick<PlayerRow, "id" | "first_name" | "elo">;
+export type RivalryPlayer = Pick<PlayerRow, "id" | "first_name" | "nickname" | "elo">;
 
 export type Rivalry = {
   key: string;

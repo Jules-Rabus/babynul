@@ -14,6 +14,8 @@ export type RecordMatchInput = {
   b2: string | null;
   scoreA: number;
   scoreB: number;
+  sessionId?: string | null;
+  proposedMatchId?: string | null;
 };
 
 export function useRecordMatch() {
@@ -21,7 +23,9 @@ export function useRecordMatch() {
   return useMutation({
     mutationFn: async (input: RecordMatchInput) => {
       const supabase = createClient();
-      const { data, error } = await supabase.rpc("record_match", {
+      // Si une session est fournie, on utilise record_match_v2 qui taggue session_id.
+      const rpcName = input.sessionId ? "record_match_v2" : "record_match";
+      const args: Record<string, unknown> = {
         p_mode: input.mode,
         p_a1: input.a1,
         p_a2: input.a2,
@@ -29,14 +33,48 @@ export function useRecordMatch() {
         p_b2: input.b2,
         p_score_a: input.scoreA,
         p_score_b: input.scoreB,
-      });
+      };
+      if (input.sessionId) args.p_session_id = input.sessionId;
+      const { data, error } = await supabase.rpc(rpcName, args);
       if (error) throw error;
-      return data as string;
+      const matchId = data as string;
+
+      // Si on a un proposed_match lié, on le résout automatiquement côté vainqueur.
+      if (input.proposedMatchId) {
+        const winnerSide = input.scoreA > input.scoreB ? "A" : "B";
+        const { error: resolveErr } = await supabase.rpc("resolve_proposed_match", {
+          p_proposed_match_id: input.proposedMatchId,
+          p_winner_side: winnerSide,
+          p_match_id: matchId,
+        });
+        if (resolveErr) throw resolveErr;
+      }
+      return matchId;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MATCHES_KEY });
       qc.invalidateQueries({ queryKey: ["players"] });
       qc.invalidateQueries({ queryKey: ["teams"] });
+      qc.invalidateQueries({ queryKey: ["proposed-matches"] });
+      qc.invalidateQueries({ queryKey: ["play-sessions"] });
+    },
+  });
+}
+
+export function useSessionMatches(sessionId: string | null) {
+  return useQuery({
+    queryKey: ["matches", "session", sessionId],
+    enabled: !!sessionId,
+    queryFn: async (): Promise<MatchRow[]> => {
+      if (!sessionId) return [];
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("matches")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("played_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as MatchRow[];
     },
   });
 }
