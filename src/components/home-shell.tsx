@@ -12,6 +12,7 @@ import { MatchmakingPanel } from "@/components/matchmaking/matchmaking-panel";
 import { PlayersTable } from "@/components/players-admin/players-table";
 import { TournamentPanel } from "@/components/tournament/tournament-panel";
 import { WagersPanel } from "@/components/wagers/wagers-panel";
+import { VoicePromptEditor } from "@/components/settings/voice-prompt-editor";
 
 export function HomeShell({ unlocked }: { unlocked: boolean }) {
   return (
@@ -43,6 +44,7 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
                 <TabsTrigger value="tournament">Tournoi</TabsTrigger>
                 <TabsTrigger value="wagers">Paris</TabsTrigger>
                 <TabsTrigger value="players">Joueurs</TabsTrigger>
+                {unlocked && <TabsTrigger value="settings">Réglages</TabsTrigger>}
               </TabsList>
             </div>
 
@@ -72,6 +74,14 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
             <TabsContent value="players">
               <PlayersTable />
             </TabsContent>
+
+            {unlocked && (
+              <TabsContent value="settings">
+                <div className="mx-auto max-w-3xl">
+                  <VoicePromptEditor />
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </section>
       </main>

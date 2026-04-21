@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAnnouncePrompt, pickAudioStyle } from "./build-announce-prompt";
+import { buildAnnouncePrompt, DEFAULT_VOICE_TEMPLATES, pickAudioStyle } from "./build-announce-prompt";
 
 describe("buildAnnouncePrompt", () => {
   const neutralPlayer = (id: string, name: string) => ({
@@ -56,6 +56,35 @@ describe("buildAnnouncePrompt", () => {
     });
     expect(prompt).not.toContain("MODE GOAT");
     expect(prompt).not.toContain("MODE ROAST");
+  });
+
+  it("substitue les placeholders {names} et {streak} dans des templates custom", () => {
+    const prompt = buildAnnouncePrompt(
+      {
+        teamA: [{ id: "p1", name: "Jules", form: { kind: "goat", streak: 5 } }],
+        teamB: [neutralPlayer("p2", "Marie")],
+      },
+      {
+        ...DEFAULT_VOICE_TEMPLATES,
+        goat_template: "🐐 Attention : {names} enchaîne {streak} victoires d'affilée.",
+      },
+    );
+    expect(prompt).toContain("🐐 Attention : Jules (5 victoires d'affilée) enchaîne 5 victoires d'affilée.");
+  });
+
+  it("ne casse pas si un template n'utilise aucun placeholder", () => {
+    const prompt = buildAnnouncePrompt(
+      {
+        teamA: [{ id: "p1", name: "Jules", form: { kind: "roast", streak: 3 } }],
+        teamB: [neutralPlayer("p2", "Marie")],
+      },
+      {
+        ...DEFAULT_VOICE_TEMPLATES,
+        roast_template: "Pas besoin de citer les noms ici.",
+      },
+    );
+    expect(prompt).toContain("Pas besoin de citer les noms ici.");
+    expect(prompt).toContain("Jules"); // citation dans le bloc Équipe A
   });
 });
 

@@ -11,91 +11,96 @@ type Rule = { text: string; punchline?: string };
 
 const BASIC_RULES: Rule[] = [
   {
-    text: "2v2 ou 1v1, on joue en 10 points. 2 points d'écart, sinon on continue jusqu'à ce que quelqu'un craque.",
+    text: "2v2 ou 1v1, on joue en 10 points. 2 points d'écart, sinon on continue.",
+    punchline: "Comme à Roland-Garros : tant qu'il n'y a pas 2 breaks d'écart, on lâche rien.",
   },
   {
     text: "Balle sortie → remise en jeu par celui qui l'a perdue, sur sa ligne de défense.",
+    punchline: "Remise en touche du vaincu. L'erreur se paie cash.",
   },
   {
-    text: "But gag (rebond bizarre qui finit dans la cage) : ça compte. Arrête de chialer.",
-    punchline: "Le flipper fait partie du jeu.",
+    text: "But gag (rebond bizarre qui finit dans la cage) : ça compte.",
+    punchline: "Un but c'est un but. Le poteau fait partie du jeu, la malchance aussi.",
   },
   {
-    text: "Changement de côté à la mi-temps si vous êtes 3+. Sinon : courage et endurance.",
+    text: "Changement de côté à la mi-temps si vous êtes 3+.",
+    punchline: "Terrain égal, excuses en moins.",
   },
   {
-    text: "Un joueur ne touche JAMAIS les barres adverses. Main sur les deux rouges ou les deux bleues, pas les deux.",
+    text: "Un joueur ne touche JAMAIS les barres adverses.",
+    punchline: "Chacun son poste. Les polyvalents finissent sur le banc.",
   },
 ];
 
 const HOUSE_RULES: Rule[] = [
   {
     text: "Roulette interdite.",
-    punchline: "On n'est pas au PMU. Défenseur ou milieu qui fait tourner 360° → balle à l'adverse.",
+    punchline: "Le spectacle, oui. Le cirque, non. Faute technique, balle à l'adverse.",
   },
   {
     text: "Pas de demi-but.",
-    punchline: "Sauf si t'es au bar. Dans ce cas c'est toléré une fois par personne par soirée.",
+    punchline: "Un but franc ou rien. Les victoires à moitié, ça marque pas les mémoires.",
   },
   {
-    text: "Pas de « coup droit bouchon » collé à la paroi.",
-    punchline: "Si tu marques comme ça, tu payes la tournée. Règle du bon goût.",
+    text: "Pas de coup droit bouchon collé à la paroi.",
+    punchline: "Anti-jeu sanctionné. Les beaux gestes font les beaux matchs.",
   },
   {
     text: "Interdiction de secouer la table.",
-    punchline: "Même si tu perds. Surtout si tu perds.",
+    punchline: "La table est sacrée. Perdre avec classe fait partie du métier.",
   },
   {
     text: "La volée à 2 barres est tolérée si c'est beau.",
-    punchline: "Si c'est moche : rejouée. Le jury (les spectateurs) tranche.",
+    punchline: "Geste propre, les tribunes applaudissent. Sinon, on recommence.",
   },
   {
     text: "Le gardien adverse ne peut pas parler pendant ton tir.",
-    punchline: "Sinon c'est coaching illégal. Carton jaune oral.",
+    punchline: "Coaching interdit pendant l'action. Le banc se tait.",
   },
 ];
 
 const TRASH_TALK: Rule[] = [
   {
     text: "Chambrer est autorisé.",
-    punchline: "Recommandé, même.",
+    punchline: "Ça fait partie du folklore, au même titre que la troisième mi-temps.",
   },
   {
     text: "Mais chambre bien.",
-    punchline: "Le français approximatif est disqualifié d'office par le président de séance.",
+    punchline: "Le niveau du chambrage reflète le niveau du joueur.",
   },
   {
     text: "Chambrage silencieux interdit.",
-    punchline: "Si tu souris narquoisement pendant 30 secondes sans rien dire, tu payes un tacos.",
+    punchline: "Fixer l'adversaire en souriant, c'est de l'intimidation. Avertissement.",
   },
 ];
 
 const BAR_RULES: Rule[] = [
   {
     text: "Toute partie commencée avec une boisson doit se terminer avec la même.",
-    punchline: "Ou pire. Jamais mieux.",
+    punchline: "La préparation d'avant-match est sacrée. On change pas son régime en plein effort.",
   },
   {
     text: "Match sec : interdit avant 19h.",
-    punchline: "Règle Jules. Non-négociable.",
+    punchline: "Le corps a besoin de récupérer avant l'effort. Tous les préparateurs le confirment.",
   },
   {
     text: "Le perdant sert le coup suivant.",
-    punchline: "C'est la loi du parquet.",
+    punchline: "La troisième mi-temps est une tradition. Elle n'a jamais failli.",
   },
 ];
 
 const VOICE_RULES: Rule[] = [
   {
-    text: "Si le speaker se moque de toi, c'est que tu as perdu 3 fois d'affilée.",
-    punchline: "Courage, champion. Le bas est la base du haut.",
+    text: "3 défaites d'affilée → le speaker te chambre.",
+    punchline: "Les caméras d'après-match sont impitoyables. Faut assumer.",
   },
   {
-    text: "Si le speaker te couronne 🐐, fais gaffe.",
-    punchline: "La chute sera terrible. L'histoire l'a prouvé.",
+    text: "3 victoires d'affilée → il te couronne 🐐.",
+    punchline: "Mais les favoris chutent aussi. L'histoire du sport en est pleine.",
   },
   {
-    text: "Couper le mode vocal pendant qu'il t'annonce est considéré comme un forfait moral.",
+    text: "Couper le mode vocal pendant qu'il t'annonce = forfait moral.",
+    punchline: "On n'éteint pas le commentateur en plein direct. Ça se fait pas.",
   },
 ];
 
@@ -171,7 +176,7 @@ export default function ReglementPage() {
       </div>
 
       <footer className="mt-10 rounded-xl bg-muted/40 p-4 text-center text-xs text-muted-foreground">
-        Règlement évolutif. Toute remarque est à soumettre au président de séance (celui qui a la main sur le joystick).
+        Règlement évolutif. Réclamations à l&apos;arbitre central, micro en main, après la rencontre.
       </footer>
     </main>
   );

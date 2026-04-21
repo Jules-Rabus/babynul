@@ -14,6 +14,8 @@ export type DemoMatch = {
   score_b: number;
   winner_side: "A" | "B";
   played_at: string;
+  /** Lie le match à la session mock (si défini) — sert au mode Roast/GOAT. */
+  session_id?: string | null;
 };
 
 export const DEMO_PLAYERS: DemoPlayer[] = [
@@ -35,20 +37,93 @@ const now = Date.now();
 const iso = (daysAgo: number, minutesAgo = 0) =>
   new Date(now - daysAgo * 86400000 - minutesAgo * 60000).toISOString();
 
-export const DEMO_MATCHES: DemoMatch[] = [
-  { id: "m1", teamA: ["p1"], teamB: ["p2"], score_a: 10, score_b: 8, winner_side: "A", played_at: iso(0, 15) },
-  { id: "m2", teamA: ["p3"], teamB: ["p5"], score_a: 7, score_b: 10, winner_side: "B", played_at: iso(0, 45) },
-  { id: "m3", teamA: ["p4"], teamB: ["p7"], score_a: 10, score_b: 5, winner_side: "A", played_at: iso(0, 90) },
-  { id: "m4", teamA: ["p1"], teamB: ["p6"], score_a: 10, score_b: 3, winner_side: "A", played_at: iso(1) },
-  { id: "m5", teamA: ["p2"], teamB: ["p8"], score_a: 10, score_b: 6, winner_side: "A", played_at: iso(1, 60) },
-  { id: "m6", teamA: ["p9"], teamB: ["p12"], score_a: 10, score_b: 2, winner_side: "A", played_at: iso(2) },
-  { id: "m7", teamA: ["p5"], teamB: ["p11"], score_a: 10, score_b: 7, winner_side: "A", played_at: iso(2, 120) },
-  { id: "m8", teamA: ["p4"], teamB: ["p10"], score_a: 10, score_b: 4, winner_side: "A", played_at: iso(3) },
+export const DEMO_SESSION_ID = "s-demo";
+
+/**
+ * Matchs de la session en cours (session_id = DEMO_SESSION_ID).
+ * Structure conçue pour déclencher Roast/GOAT dans le voice mode :
+ *  - p1 (Jules / Le Boss) : 3 victoires d'affilée → mode GOAT 🐐
+ *  - p12 (Inès) : 3 défaites d'affilée → mode ROAST 💀
+ */
+const sessionMatches: DemoMatch[] = [
+  // Plus récent → en haut. Trois victoires consécutives pour p1 (GOAT).
+  {
+    id: "s-m1",
+    teamA: ["p1", "p5"],
+    teamB: ["p3", "p8"],
+    score_a: 10,
+    score_b: 6,
+    winner_side: "A",
+    played_at: iso(0, 10),
+    session_id: DEMO_SESSION_ID,
+  },
+  {
+    id: "s-m2",
+    teamA: ["p1", "p7"],
+    teamB: ["p2", "p4"],
+    score_a: 10,
+    score_b: 8,
+    winner_side: "A",
+    played_at: iso(0, 35),
+    session_id: DEMO_SESSION_ID,
+  },
+  {
+    id: "s-m3",
+    teamA: ["p1", "p6"],
+    teamB: ["p9", "p11"],
+    score_a: 10,
+    score_b: 4,
+    winner_side: "A",
+    played_at: iso(0, 65),
+    session_id: DEMO_SESSION_ID,
+  },
+  // Trois défaites consécutives pour p12 (ROAST). Plus récentes → en haut des siens.
+  {
+    id: "s-m4",
+    teamA: ["p2", "p3"],
+    teamB: ["p12", "p10"],
+    score_a: 10,
+    score_b: 3,
+    winner_side: "A",
+    played_at: iso(0, 25),
+    session_id: DEMO_SESSION_ID,
+  },
+  {
+    id: "s-m5",
+    teamA: ["p4", "p8"],
+    teamB: ["p12", "p9"],
+    score_a: 10,
+    score_b: 5,
+    winner_side: "A",
+    played_at: iso(0, 55),
+    session_id: DEMO_SESSION_ID,
+  },
+  {
+    id: "s-m6",
+    teamA: ["p5", "p7"],
+    teamB: ["p12", "p11"],
+    score_a: 10,
+    score_b: 7,
+    winner_side: "A",
+    played_at: iso(0, 85),
+    session_id: DEMO_SESSION_ID,
+  },
 ];
 
+/** Matchs plus anciens, hors session, juste pour garnir l'historique public. */
+const historicalMatches: DemoMatch[] = [
+  { id: "h-m1", teamA: ["p1"], teamB: ["p2"], score_a: 10, score_b: 8, winner_side: "A", played_at: iso(1) },
+  { id: "h-m2", teamA: ["p3"], teamB: ["p5"], score_a: 7, score_b: 10, winner_side: "B", played_at: iso(1, 90) },
+  { id: "h-m3", teamA: ["p9"], teamB: ["p12"], score_a: 10, score_b: 2, winner_side: "A", played_at: iso(2) },
+  { id: "h-m4", teamA: ["p4"], teamB: ["p10"], score_a: 10, score_b: 4, winner_side: "A", played_at: iso(3) },
+];
+
+export const DEMO_MATCHES: DemoMatch[] = [...sessionMatches, ...historicalMatches];
+
 export const DEMO_SESSION = {
-  id: "s-demo",
-  label: `Soirée du ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}`,
+  id: DEMO_SESSION_ID,
+  label: `Tournoi du ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}`,
   started_at: iso(0, 120),
-  participants: DEMO_PLAYERS.slice(0, 8),
+  // Les 12 sont présents dans la session mock — p1 a 3 victoires, p12 a 3 défaites.
+  participants: DEMO_PLAYERS,
 };

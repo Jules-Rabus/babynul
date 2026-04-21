@@ -35,6 +35,7 @@ import { usePlayerForms } from "@/hooks/use-player-forms";
 import { useVoiceEnabled } from "@/lib/voice/use-announce-next-match";
 import { SessionControls } from "./session-controls";
 import { RecordSessionMatchDialog } from "./record-session-match-dialog";
+import { RecordEphemeralMatchDialog } from "./record-ephemeral-match-dialog";
 import { toast } from "sonner";
 
 export function MatchmakingPanel() {
@@ -58,8 +59,17 @@ export function MatchmakingPanel() {
   const [search, setSearch] = useState("");
   const [toLeave, setToLeave] = useState<string | null>(null);
   const [toRecord, setToRecord] = useState<ProposedMatchWithPlayers | null>(null);
+  const [ephemeralToRecord, setEphemeralToRecord] = useState<ProposedMatch | null>(null);
 
   const voice = useVoiceEnabled();
+
+  const requireAdmin = (action: () => void) => {
+    if (!unlocked) {
+      toast.error("Débloquez le mode admin (bouton 🔒 en haut) pour cette action.");
+      return;
+    }
+    action();
+  };
 
   const presentPlayerIds = useMemo(() => {
     if (sessionId) {
@@ -279,7 +289,7 @@ export function MatchmakingPanel() {
             <CardDescription>
               {sessionId
                 ? "Cliquez pour marquer un joueur comme présent ou absent. Les départs annulent les matchs ouverts et remboursent les mises."
-                : "Sélection locale (démarrez une soirée pour persister)."}
+                : "Sélection locale (démarrez un tournoi du jour pour persister)."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -333,13 +343,20 @@ export function MatchmakingPanel() {
                 {presentPlayerIds.size} présent{presentPlayerIds.size > 1 ? "s" : ""}
               </span>
               <div className="flex flex-wrap gap-2">
-                {sessionId && openSessionMatches.length > 0 && unlocked && (
-                  <Button variant="outline" onClick={regenerate} disabled={cancelAllOpen.isPending || createProposed.isPending}>
+                {sessionId && openSessionMatches.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => requireAdmin(regenerate)}
+                    disabled={cancelAllOpen.isPending || createProposed.isPending}
+                  >
                     <Shuffle className="h-4 w-4" />
                     Régénérer la suite
                   </Button>
                 )}
-                <Button onClick={generate} disabled={!canGenerate || createProposed.isPending}>
+                <Button
+                  onClick={() => (sessionId ? requireAdmin(generate) : generate())}
+                  disabled={!canGenerate || createProposed.isPending}
+                >
                   <Shuffle className="h-4 w-4" />
                   {sessionId ? "Générer les matchs" : "Générer la journée"}
                 </Button>
@@ -351,10 +368,10 @@ export function MatchmakingPanel() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {sessionId ? `Matchs de la soirée (${openSessionMatches.length} ouverts)` : "Matchs proposés"}
+              {sessionId ? `Matchs du tournoi (${openSessionMatches.length} ouverts)` : "Matchs proposés"}
             </CardTitle>
             <CardDescription>
-              Équipes équilibrées par Elo. Les joueurs les moins actifs de la soirée passent en priorité.
+              Équipes équilibrées par Elo. Les joueurs les moins actifs du tournoi passent en priorité.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -372,9 +389,8 @@ export function MatchmakingPanel() {
                           key={m.id}
                           match={m}
                           index={i}
-                          onCancel={() => cancelProposed.mutate(m.id)}
-                          onRecord={() => setToRecord(m)}
-                          canAdmin={unlocked}
+                          onCancel={() => requireAdmin(() => cancelProposed.mutate(m.id))}
+                          onRecord={() => requireAdmin(() => setToRecord(m))}
                         />
                       ))}
                     </ol>
@@ -390,7 +406,6 @@ export function MatchmakingPanel() {
                             key={m.id}
                             match={m}
                             compact
-                            canAdmin={false}
                             onCancel={() => {}}
                             onRecord={() => {}}
                           />
@@ -409,28 +424,47 @@ export function MatchmakingPanel() {
                 {ephemeralMatches.map((m, i) => (
                   <li
                     key={m.id}
-                    className="grid grid-cols-[auto,1fr,auto,1fr,auto,auto] items-center gap-2 rounded-xl bg-muted/40 p-3 text-sm"
+                    className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3 text-sm"
                   >
                     <Badge variant="outline" className="font-mono">
                       #{i + 1}
                     </Badge>
-                    <TeamLabel team={m.teamA} />
-                    <span className="text-xs font-semibold text-muted-foreground">VS</span>
-                    <TeamLabel team={m.teamB} />
-                    <Badge variant={m.eloGap < 80 ? "secondary" : "accent"}>Δ{m.eloGap}</Badge>
-                    {unlocked ? (
+                    <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                      <TeamLabel team={m.teamA} />
+                      <span className="text-xs font-semibold text-muted-foreground">VS</span>
+                      <TeamLabel team={m.teamB} />
+                      <Badge variant={m.eloGap < 80 ? "secondary" : "accent"}>Δ{m.eloGap}</Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => requireAdmin(() => setEphemeralToRecord(m))}
+                        title="Saisir le score de ce match"
+                      >
+                        <PlayCircle className="h-4 w-4" />
+                        <span className="hidden sm:inline">Saisir le score</span>
+                      </Button>
                       <Button
                         variant="outline"
-                        size="sm"
-                        onClick={() => openEphemeralBetting(m)}
+                        size="icon"
+                        onClick={() => requireAdmin(() => openEphemeralBetting(m))}
                         disabled={createProposed.isPending}
                         title="Ouvrir les paris sur ce match"
                       >
                         <Coins className="h-3.5 w-3.5" />
                       </Button>
-                    ) : (
-                      <span />
-                    )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          setEphemeralMatches((prev) => prev.filter((x) => x.id !== m.id))
+                        }
+                        title="Retirer ce match de la liste"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -489,10 +523,18 @@ export function MatchmakingPanel() {
         onClose={() => setToRecord(null)}
       />
 
+      <RecordEphemeralMatchDialog
+        match={ephemeralToRecord}
+        onClose={() => setEphemeralToRecord(null)}
+        onRecorded={() =>
+          setEphemeralMatches((prev) => prev.filter((x) => x.id !== ephemeralToRecord?.id))
+        }
+      />
+
       <Dialog open={!!toLeave} onOpenChange={(o) => !o && setToLeave(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Retirer ce joueur de la soirée ?</DialogTitle>
+            <DialogTitle>Retirer ce joueur du tournoi ?</DialogTitle>
             <DialogDescription>
               Ce joueur a des matchs ouverts. Ceux-ci seront annulés et toutes les mises remboursées. Les matchs non concernés restent intacts.
             </DialogDescription>
@@ -515,14 +557,12 @@ function SessionMatchCard({
   match,
   index,
   compact,
-  canAdmin,
   onCancel,
   onRecord,
 }: {
   match: ProposedMatchWithPlayers;
   index?: number;
   compact?: boolean;
-  canAdmin: boolean;
   onCancel: () => void;
   onRecord: () => void;
 }) {
@@ -541,9 +581,9 @@ function SessionMatchCard({
         <span className="font-medium">{teamBLabel}</span>
         {!compact && <Badge variant={eloGap < 80 ? "secondary" : "accent"}>Δ{eloGap}</Badge>}
       </div>
-      {canAdmin && isOpen && (
+      {isOpen && (
         <div className="flex items-center gap-1">
-          <Button variant="default" size="sm" onClick={onRecord}>
+          <Button variant="default" size="sm" onClick={onRecord} title="Saisir le score">
             <PlayCircle className="h-4 w-4" />
             <span className="hidden sm:inline">Saisir le score</span>
           </Button>
@@ -551,7 +591,7 @@ function SessionMatchCard({
             variant="ghost"
             size="icon"
             onClick={onCancel}
-            title="Annuler ce match (remboursement)"
+            title="Supprimer ce match (remboursement des mises)"
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>

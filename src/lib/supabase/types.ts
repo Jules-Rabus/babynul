@@ -192,6 +192,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      voice_prompt_config: {
+        Row: {
+          id: number;
+          intro: string;
+          goat_template: string;
+          roast_template: string;
+          mixed_template: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          intro: string;
+          goat_template: string;
+          roast_template: string;
+          mixed_template: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          intro?: string;
+          goat_template?: string;
+          roast_template?: string;
+          mixed_template?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -214,3 +241,4 @@ export type TeamRow = Database["public"]["Tables"]["teams"]["Row"];
 export type MatchRow = Database["public"]["Tables"]["matches"]["Row"];
 export type PlaySessionRow = Database["public"]["Tables"]["play_sessions"]["Row"];
 export type SessionPlayerRow = Database["public"]["Tables"]["session_players"]["Row"];
+export type VoicePromptConfigRow = Database["public"]["Tables"]["voice_prompt_config"]["Row"];

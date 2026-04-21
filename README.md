@@ -1,90 +1,171 @@
 # Babynul !
 
 Application de gestion des parties de Baby-Foot entre collègues.
-Stack : **Next.js 15** (App Router) + **Supabase** (Postgres + Auth Google SSO) + **Tailwind/shadcn** + **React Query**.
+Stack : **Next.js 15** (App Router) + **Supabase** (Postgres + RLS) + **Tailwind/shadcn** + **React Query** + **MSW** (mode mock).
 
 ## Fonctionnalités
 
-- Classement **individuel** et **équipes** (Elo, K=32)
-- Saisie de matchs **1v1** ou **2v2** (équipes créées automatiquement)
-- **Matchmaking** équilibré : génère une journée de matchs en appariant fort+faible
-- Historique des parties + **courbe d'évolution de l'Elo** par joueur
-- Admin joueurs : ajout avec presets Elo (Faible 800 / Moyen 1000 / Fort 1200), suppression en cascade
-- **Recherche** + **tris croisés** partout, médailles 🥇🥈🥉 indépendantes du tri courant
-- Dark / Light mode, interface en français
+- **Classement** individuel et équipes (Elo, K=32), médailles 🥇🥈🥉 indépendantes du tri
+- **Saisie de matchs** 1v1 ou 2v2 (équipes créées automatiquement)
+- **Matchmaking équilibré** : priorité aux joueurs qui ont le moins joué **dans le tournoi du jour courante** (pas dans l'historique), appariement fort+faible
+- **Tournois du jour persistés** (`play_sessions`) : liste vivante de présents, compteur par joueur, clôture propre
+- **Départ en cours de tournoi** : les matchs ouverts du joueur sont annulés, mises remboursées, possibilité de régénérer la suite
+- **Saisie directe depuis le matchmaking** : bouton « Saisir le score » sur chaque match généré, dialog pré-rempli
+- **Suppression de match** : bouton 🗑️ sur chaque match ouvert (remboursement auto)
+- **Paris avec cotes Elo** : chaque joueur parie des points fictifs sur les matchs proposés
+- **Revanches & belles** : détection auto des face-à-face récents, ouverture de paris en un clic
+- **Tournoi** à élimination directe avec bracket aléatoire
+- **Surnoms** éditables par joueur, utilisés dans les annonces vocales
+- **Voice mode IA** (après saisie de score) :
+  - Phrase drôle générée par LLM (Gemini ou OpenAI) en style commentateur sportif
+  - Synthèse vocale via Gemini 3.1 Flash TTS (fallback OpenAI `gpt-4o-mini-tts`)
+  - **Mode GOAT** 🏆 : 3+ victoires d'affilée → intro épique, couronne le joueur
+  - **Mode Roast** 💀 : 3+ défaites d'affilée → chambrage gentil
+  - Détection sur scope session quand un tournoi est active
+- **Pages publiques** : `/demo` (showcase sans BDD), `/reglement` (règles FFFT + règles maison)
+- **Historique des parties** + courbe d'évolution de l'Elo par joueur
+- **Undo** : annuler le dernier match (reverse les deltas Elo + rembourse les paris)
+- **Mode admin** : code serveur qui débloque saisie, ouverture de paris, gestion des joueurs
+- Dark / Light mode, **mobile-first**, interface en français
 
 ## Prérequis
 
 - Node.js 20+
 - Un projet Supabase (plan gratuit suffit)
-- Un client OAuth Google
+- Facultatif : clé **Gemini** (Google AI Studio) et/ou **OpenAI** pour le voice mode
 
 ## 1 — Configuration Supabase
 
-1. Créer un projet sur [database.new](https://database.new) (région `eu-west-3` / Paris recommandée).
+1. Créer un projet sur [database.new](https://database.new).
 2. Dans le dashboard Supabase → **SQL Editor**, exécuter dans l'ordre les fichiers de `supabase/migrations/` :
-   - `0001_init.sql` (tables + index)
-   - `0002_rls.sql` (RLS : lecture publique, écriture authentifiée)
-   - `0003_triggers.sql` (auto-création d'un profil joueur à la 1re connexion)
-   - `0004_rpc.sql` (RPC transactionnels : record_match, delete_player_cascade, Elo)
-3. **Authentication → Providers → Google** : activer. Coller le Client ID et Client Secret (voir étape 2).
-4. **Settings → API → Publishable key** : copier la valeur `sb_publishable_...` (ou l'ancienne `anon key` si votre projet n'a pas encore été migré).
+   - `0001_init.sql` — tables core (`players`, `teams`, `matches`) + index
+   - `0002_rls.sql` — RLS (lecture publique, écritures passent par les RPC)
+   - `0003_triggers.sql` — triggers auxiliaires
+   - `0004_rpc.sql` — `record_match`, `elo_delta`, `delete_player_cascade`
+   - `0005_undo.sql` — `undo_last_match`
+   - `0006_bets.sql` — sondages (déprécié, droppé par 0008)
+   - `0007_wagers.sql` — paris avec cotes Elo (version bettor_key)
+   - `0008_unify_bettor_player.sql` — unification parieur = joueur, ajoute `wager_*` sur `players`
+   - `0009_player_nickname.sql` — surnom optionnel
+   - `0010_play_sessions.sql` — tournois du jour persistés + RPC session
+3. **Settings → API → Publishable key** : copier la valeur `sb_publishable_...` (ou l'ancienne `anon key`).
 
-## 2 — OAuth Google
-
-1. Dans [Google Cloud Console](https://console.cloud.google.com/apis/credentials), créer un **OAuth 2.0 Client ID** de type _Web application_.
-2. **Authorized redirect URIs** : y ajouter l'URL de callback affichée dans Supabase → Auth → Providers → Google (format `https://<project-ref>.supabase.co/auth/v1/callback`).
-3. Copier le Client ID + Secret dans Supabase (étape 1.3).
-
-## 3 — Variables d'environnement
+## 2 — Variables d'environnement
 
 Copier `.env.local.example` vers `.env.local` et renseigner :
 
 ```bash
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+
+# Code admin (débloque saisie + gestion)
+ADMIN_CODE=un-code-secret
+
+# Voice mode — au moins une des deux clés
+VOICE_PROVIDER=gemini
+GOOGLE_GENERATIVE_AI_API_KEY=AIza...
+OPENAI_API_KEY=sk-...
 ```
 
-## 4 — Lancement local
+Le voice mode n'est pas bloquant : sans clé IA, l'app fonctionne normalement, seul le bouton 🔊 reste inerte.
+
+## 3 — Lancement local
 
 ```bash
 npm install
-npm run dev
+npm run dev             # mode normal (tape sur Supabase)
+npm run start:mock      # mode mock (MSW intercepte Supabase, 12 joueurs fictifs)
 ```
 
-Ouvrir http://localhost:3000 et cliquer sur « Se connecter avec Google ».
+Ouvrir http://localhost:3000.
+
+En **mode mock** (`NEXT_PUBLIC_USE_MSW=1`), aucun appel réseau ne sort : tout est intercepté côté navigateur par [MSW](https://mswjs.io). Pratique pour tester le voice mode IA sans toucher à la prod.
+
+## 4 — Tests
+
+```bash
+npm test                # vitest run (unitaires + RTL + MSW node)
+npm run test:watch      # mode watch
+```
+
+39 tests couvrent `matchmaking`, `elo`, `player-form` (GOAT/Roast), `player-display`, `build-announce-prompt`.
 
 ## 5 — Déploiement Vercel
 
 1. Pousser le repo sur GitHub.
 2. Sur [vercel.com/new](https://vercel.com/new), importer le repo.
-3. Ajouter les 2 variables d'env (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`).
-4. Après le premier déploiement, ajouter l'URL prod (ex. `https://babynul.vercel.app/auth/callback`) dans :
-   - Google Cloud Console (Authorized redirect URIs)
-   - Supabase Auth → URL Configuration → Site URL & Redirect URLs
+3. Ajouter les variables d'env : `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `ADMIN_CODE`, et au moins une clé IA (`GOOGLE_GENERATIVE_AI_API_KEY` ou `OPENAI_API_KEY`).
+4. Déployer.
+
+## Flux matchmaking (important)
+
+1. **Démarrer un tournoi** (bouton admin « Démarrer un tournoi »).
+2. **Cocher les présents** parmi les joueurs → persisté dans `session_players`.
+3. **Générer les matchs** → crée N `proposed_matches` liés à la session, équilibrés par Elo, priorité aux joueurs qui ont le moins joué dans le tournoi du jour.
+4. Pour chaque match :
+   - Bouton **« Saisir le score »** → dialog pré-rempli → enregistre le match + résout le `proposed_match` + paye les paris + trigger voice mode.
+   - Bouton 🗑️ **« Supprimer »** → annule le match et rembourse les mises.
+5. **Régénérer la suite** : annule tous les matchs ouverts et relance la génération avec le compteur à jour.
+6. **Joueur qui part** : décocher sa présence → confirmation → ses matchs ouverts sont annulés, mises remboursées. Générer à nouveau pour la suite.
+7. **Clôturer le tournoi** quand c'est fini.
+
+La saisie/suppression demandent le **mode admin** (bouton 🔒 en haut à droite). Si non débloqué, un toast invite à entrer le code.
 
 ## Structure
 
 ```
 src/
-├── app/                 Routes Next.js (login, auth/callback, auth/signout, page principale)
-├── components/          Composants UI (ranking, matches, matchmaking, players-admin, shadcn/ui)
-├── hooks/               use-session
+├── app/
+│   ├── api/voice/announce/  Route POST — LLM prompt → Gemini TTS → audio
+│   ├── demo/                Page publique (mock data)
+│   ├── reglement/           Règles FFFT + règles maison
+│   └── page.tsx             App principale
+├── components/
+│   ├── matchmaking/         Panel, session-controls, dialog de saisie
+│   ├── matches/             Saisie 1v1/2v2, undo
+│   ├── players-admin/       Table + ajout + édition surnom
+│   ├── ranking/             Classements + modal stats par joueur
+│   ├── tournament/          Bracket à élimination directe
+│   ├── wagers/              Paris + leaderboard tipsters
+│   ├── footer.tsx           Footer global
+│   └── providers.tsx        React Query + thème + bootstrap MSW
+├── hooks/                   use-current-player, use-player-forms
 ├── lib/
-│   ├── elo.ts           Formule Elo + presets
-│   ├── matchmaking.ts   Algorithme de matchmaking équilibré
-│   ├── queries/         Hooks React Query
-│   └── supabase/        Clients browser/server/middleware + types
-└── middleware.ts        Refresh session SSR
+│   ├── demo/                Fixtures (12 joueurs, session, matchs)
+│   ├── queries/             Hooks React Query (players, matches, teams, wagers, play-sessions)
+│   ├── supabase/            Clients browser + types
+│   ├── voice/
+│   │   ├── provider.ts              Interface TTS abstraite
+│   │   ├── providers/gemini.ts      Gemini 3.1 Flash TTS
+│   │   ├── providers/openai.ts      OpenAI gpt-4o-mini-tts
+│   │   ├── registry.ts              Sélection + fallback auto
+│   │   ├── player-form.ts           Détection GOAT/Roast
+│   │   ├── build-announce-prompt.ts Prompt LLM avec injection des modes
+│   │   └── use-announce-next-match.ts Hook client + toggle persistant
+│   ├── elo.ts               Formule Elo + presets + cotes
+│   ├── matchmaking.ts       Génération de matchs équilibrés
+│   ├── player-display.ts    displayName / announceName (surnom prioritaire)
+│   ├── rivalries.ts         Détection revanches/belles
+│   └── tournament.ts        Bracket à élimination directe
+└── test/
+    ├── msw/
+    │   ├── handlers/supabase-browser.ts  Intercepte tous les endpoints Supabase
+    │   ├── handlers/supabase.ts          Handlers Node pour Vitest
+    │   └── server.ts
+    └── setup.ts
 
-supabase/migrations/     Migrations SQL (schema, RLS, triggers, RPC)
+supabase/migrations/         Migrations SQL numérotées 0001 → 0010
 ```
 
 ## Scripts
 
 ```bash
-npm run dev      # serveur de développement
-npm run build    # build de production
-npm run lint     # ESLint
-npm start        # serveur de production (après build)
+npm run dev         # Dev normal (Supabase prod)
+npm run start:mock  # Dev avec MSW (pas de BDD)
+npm run build       # Build de production
+npm start           # Serveur de production
+npm run lint        # ESLint
+npm test            # Vitest run
+npm run test:watch  # Vitest watch
 ```

@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { announceName } from "@/lib/player-display";
 import { computeForm } from "@/lib/voice/player-form";
-import { buildAnnouncePrompt, type AnnouncePlayer } from "@/lib/voice/build-announce-prompt";
+import {
+  buildAnnouncePrompt,
+  DEFAULT_VOICE_TEMPLATES,
+  type AnnouncePlayer,
+  type VoicePromptTemplates,
+} from "@/lib/voice/build-announce-prompt";
 import { generateAnnounceText } from "@/lib/voice/generate-announce-text";
 import { getTTSProvider } from "@/lib/voice/registry";
 import type { MatchRow as DBMatchRow } from "@/lib/supabase/types";
@@ -101,7 +106,16 @@ export async function POST(req: Request) {
       teamB: toAnnounce(teamBPlayers),
     };
 
-    const prompt = buildAnnouncePrompt(ctx);
+    // Config du prompt éditable côté admin.
+    let templates: VoicePromptTemplates = DEFAULT_VOICE_TEMPLATES;
+    const { data: cfg } = await supabase
+      .from("voice_prompt_config")
+      .select("intro, goat_template, roast_template, mixed_template")
+      .eq("id", 1)
+      .maybeSingle();
+    if (cfg) templates = cfg as VoicePromptTemplates;
+
+    const prompt = buildAnnouncePrompt(ctx, templates);
     const text = await generateAnnounceText(prompt);
 
     const tts = getTTSProvider();

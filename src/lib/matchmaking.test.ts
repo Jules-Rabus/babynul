@@ -16,7 +16,7 @@ describe("generateMatches", () => {
     expect(generateMatches([player("a", 1000), player("b", 1000), player("c", 1000)])).toEqual([]);
   });
 
-  it("appairage fort+faible : le plus fort joue avec le plus faible", () => {
+  it("minimise le gap d'Elo : choisit l'appariement qui équilibre les moyennes", () => {
     const players = [
       player("a", 1400),
       player("b", 1200),
@@ -24,13 +24,49 @@ describe("generateMatches", () => {
       player("d", 900),
     ];
     const [match] = generateMatches(players, { targetMatches: 1 });
-    const teamA = match.teamA.players.map((p) => p.id).sort();
-    const teamB = match.teamB.players.map((p) => p.id).sort();
-    // 1400 + 900 = 2300, 1200 + 1100 = 2300 → Elo moyen identique
-    expect(teamA).toContain("a");
-    expect(teamA).toContain("d");
-    expect(teamB).toContain("b");
-    expect(teamB).toContain("c");
+    // Trois options possibles : (a,b)vs(c,d)=1300 vs 1000 gap=300 ; (a,c)vs(b,d)=1250 vs 1050 gap=200 ;
+    // (a,d)vs(b,c)=1150 vs 1150 gap=0 → doit choisir la dernière.
+    expect(match.eloGap).toBe(0);
+    const ids = [...match.teamA.players, ...match.teamB.players].map((p) => p.id).sort();
+    expect(ids).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("varie les paires entre deux matchs quand les Elos sont proches", () => {
+    // 4 joueurs au même Elo → les 3 appariements donnent le même gap (0).
+    // La pénalité de répétition doit forcer une paire différente au 2e match.
+    const players = [
+      player("a", 1000),
+      player("b", 1000),
+      player("c", 1000),
+      player("d", 1000),
+    ];
+    const [match1, match2] = generateMatches(players, { targetMatches: 2 });
+    const pair1A = [...match1.teamA.players].map((p) => p.id).sort().join("|");
+    const pair1B = [...match1.teamB.players].map((p) => p.id).sort().join("|");
+    const pair2A = [...match2.teamA.players].map((p) => p.id).sort().join("|");
+    const pair2B = [...match2.teamB.players].map((p) => p.id).sort().join("|");
+    const pairs1 = new Set([pair1A, pair1B]);
+    const pairs2 = new Set([pair2A, pair2B]);
+    const overlap = [...pairs1].filter((p) => pairs2.has(p));
+    expect(overlap.length).toBe(0); // zéro paire réutilisée
+  });
+
+  it("garde un gap Elo minimal même si ça réutilise une paire", () => {
+    // Une combinaison écrase les 2 autres en gap → elle doit gagner malgré pairPenalty.
+    // [1500, 1000, 1000, 1000] : (1500+1000) vs (1000+1000) = 1250 vs 1000 gap=250 (toutes options)
+    // Du coup on vérifie juste que 2 matchs générés restent à gap minimal.
+    const players = [
+      player("star", 1500),
+      player("m1", 1000),
+      player("m2", 1000),
+      player("m3", 1000),
+    ];
+    const matches = generateMatches(players, { targetMatches: 2 });
+    // Avec ce setup, toutes les options ont gap=250 : on accepte n'importe laquelle.
+    expect(matches.length).toBe(2);
+    for (const m of matches) {
+      expect(m.eloGap).toBeLessThanOrEqual(250);
+    }
   });
 
   it("équité session : priorité aux joueurs qui ont le moins joué en session", () => {

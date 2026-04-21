@@ -30,8 +30,8 @@ export function SessionControls() {
         month: "long",
         year: "numeric",
       });
-      await startSession.mutateAsync({ label: `Soirée du ${today}` });
-      toast.success("Soirée démarrée.");
+      await startSession.mutateAsync({ label: `Tournoi du ${today}` });
+      toast.success("Tournoi démarré.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
@@ -41,7 +41,7 @@ export function SessionControls() {
     if (!active) return;
     try {
       await endSession.mutateAsync(active.session.id);
-      toast.success("Soirée clôturée.");
+      toast.success("Tournoi clôturé.");
       setConfirmEnd(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
@@ -64,15 +64,15 @@ export function SessionControls() {
       <Card>
         <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold">Aucune soirée en cours</p>
+            <p className="text-sm font-semibold">Aucun tournoi en cours</p>
             <p className="text-xs text-muted-foreground">
-              Démarrez une soirée pour persister les matchs, compter qui joue le moins, et tout recaler si quelqu&apos;un part.
+              Démarrez un tournoi du jour pour persister les matchs, compter qui joue le moins, et tout recaler si quelqu&apos;un part.
             </p>
           </div>
           {unlocked ? (
             <Button onClick={handleStart} disabled={startSession.isPending}>
               <Play className="h-4 w-4" />
-              Démarrer la soirée
+              Démarrer un tournoi
             </Button>
           ) : (
             <span className="text-xs italic text-muted-foreground">(admin uniquement)</span>
@@ -91,7 +91,7 @@ export function SessionControls() {
     <Card>
       <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold">{active.session.label ?? "Soirée en cours"}</p>
+          <p className="text-sm font-semibold">{active.session.label ?? "Tournoi en cours"}</p>
           <p className="text-xs text-muted-foreground">
             Démarrée à {started} · {active.participants.filter((p) => p.is_present).length} présent
             {active.participants.filter((p) => p.is_present).length > 1 ? "s" : ""}
@@ -107,7 +107,7 @@ export function SessionControls() {
       <Dialog open={confirmEnd} onOpenChange={setConfirmEnd}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Clôturer la soirée ?</DialogTitle>
+            <DialogTitle>Clôturer le tournoi ?</DialogTitle>
             <DialogDescription>
               Les matchs ouverts resteront annulables, et les matchs joués garderont leur lien à la session pour l&apos;historique.
             </DialogDescription>

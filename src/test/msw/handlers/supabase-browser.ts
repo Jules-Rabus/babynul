@@ -45,26 +45,29 @@ function seed(): BrowserState {
     created_at: new Date().toISOString(),
   }));
 
-  const matches: Row[] = DEMO_MATCHES.map((m) => ({
-    id: m.id,
-    mode: "individual",
-    team_a_id: null,
-    team_b_id: null,
-    player_a1_id: m.teamA[0],
-    player_a2_id: null,
-    player_b1_id: m.teamB[0],
-    player_b2_id: null,
-    score_a: m.score_a,
-    score_b: m.score_b,
-    winner_side: m.winner_side,
-    elo_delta_a: 10,
-    elo_delta_b: -10,
-    team_elo_delta_a: null,
-    team_elo_delta_b: null,
-    played_at: m.played_at,
-    recorded_by: null,
-    session_id: null,
-  }));
+  const matches: Row[] = DEMO_MATCHES.map((m) => {
+    const isTeam = m.teamA.length === 2 && m.teamB.length === 2;
+    return {
+      id: m.id,
+      mode: isTeam ? "team" : "individual",
+      team_a_id: null,
+      team_b_id: null,
+      player_a1_id: m.teamA[0] ?? null,
+      player_a2_id: m.teamA[1] ?? null,
+      player_b1_id: m.teamB[0] ?? null,
+      player_b2_id: m.teamB[1] ?? null,
+      score_a: m.score_a,
+      score_b: m.score_b,
+      winner_side: m.winner_side,
+      elo_delta_a: 10,
+      elo_delta_b: -10,
+      team_elo_delta_a: null,
+      team_elo_delta_b: null,
+      played_at: m.played_at,
+      recorded_by: null,
+      session_id: m.session_id ?? null,
+    };
+  });
 
   const sessionId = DEMO_SESSION.id;
   const play_sessions: Row[] = [
