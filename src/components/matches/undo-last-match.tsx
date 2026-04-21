@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
+import { undoLastMatch } from "@/app/actions/matches";
 import { useAdmin } from "@/components/admin-context";
 import { toast } from "sonner";
 
@@ -24,9 +24,7 @@ export function UndoLastMatch() {
 
   const undo = useMutation({
     mutationFn: async () => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("undo_last_match");
-      if (error) throw error;
+      await undoLastMatch();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["players"] });

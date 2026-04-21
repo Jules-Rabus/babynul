@@ -1,0 +1,153 @@
+// Prisma schema — Babynul
+// Source de vérité du schéma : migrations SQL Supabase (supabase/migrations/).
+// Ce fichier reflète l'état du schéma, on ne l'utilise PAS avec `prisma migrate`.
+// Prisma sert uniquement de client typé pour parler au Postgres hébergé sur Supabase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Connection string avec pooler (pgbouncer) pour runtime Fluid Compute.
+  url       = env("POSTGRES_PRISMA_URL")
+  // Connection directe pour migrations / introspection.
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model Player {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId      String?  @unique(map: "players_auth_user_id_key") @map("auth_user_id") @db.Uuid
+  firstName       String   @map("first_name")
+  nickname        String?
+  elo             Int      @default(1000)
+  gamesPlayed     Int      @default(0) @map("games_played")
+  wagerBalance    Int      @default(1000) @map("wager_balance")
+  wagerTotalWon   Int      @default(0) @map("wager_total_won")
+  wagerTotalLost  Int      @default(0) @map("wager_total_lost")
+  wagerBetsPlaced Int      @default(0) @map("wager_bets_placed")
+  wagerBetsWon    Int      @default(0) @map("wager_bets_won")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([elo(sort: Desc)], map: "players_elo_idx")
+  @@index([authUserId], map: "players_auth_user_id_idx")
+  @@map("players")
+}
+
+model Team {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  player1Id   String   @map("player1_id") @db.Uuid
+  player2Id   String   @map("player2_id") @db.Uuid
+  elo         Int      @default(1000)
+  gamesPlayed Int      @default(0) @map("games_played")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([player1Id, player2Id], map: "teams_pair_unique")
+  @@index([elo(sort: Desc)], map: "teams_elo_idx")
+  @@index([player1Id], map: "teams_p1_idx")
+  @@index([player2Id], map: "teams_p2_idx")
+  @@map("teams")
+}
+
+model Match {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mode            String
+  teamAId         String?  @map("team_a_id") @db.Uuid
+  teamBId         String?  @map("team_b_id") @db.Uuid
+  playerA1Id      String?  @map("player_a1_id") @db.Uuid
+  playerA2Id      String?  @map("player_a2_id") @db.Uuid
+  playerB1Id      String?  @map("player_b1_id") @db.Uuid
+  playerB2Id      String?  @map("player_b2_id") @db.Uuid
+  scoreA          Int      @map("score_a")
+  scoreB          Int      @map("score_b")
+  winnerSide      String   @map("winner_side")
+  eloDeltaA       Int      @default(0) @map("elo_delta_a")
+  eloDeltaB       Int      @default(0) @map("elo_delta_b")
+  teamEloDeltaA   Int?     @map("team_elo_delta_a")
+  teamEloDeltaB   Int?     @map("team_elo_delta_b")
+  playedAt        DateTime @default(now()) @map("played_at") @db.Timestamptz(6)
+  recordedBy      String?  @map("recorded_by") @db.Uuid
+  sessionId       String?  @map("session_id") @db.Uuid
+
+  @@index([playedAt(sort: Desc)], map: "matches_played_at_idx")
+  @@index([teamAId], map: "matches_team_a_idx")
+  @@index([teamBId], map: "matches_team_b_idx")
+  @@index([playerA1Id], map: "matches_player_a1_idx")
+  @@index([playerA2Id], map: "matches_player_a2_idx")
+  @@index([playerB1Id], map: "matches_player_b1_idx")
+  @@index([playerB2Id], map: "matches_player_b2_idx")
+  @@index([sessionId, playedAt(sort: Desc)], map: "matches_session_idx")
+  @@map("matches")
+}
+
+model ProposedMatch {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mode        String
+  teamAP1     String    @map("team_a_p1") @db.Uuid
+  teamAP2     String?   @map("team_a_p2") @db.Uuid
+  teamBP1     String    @map("team_b_p1") @db.Uuid
+  teamBP2     String?   @map("team_b_p2") @db.Uuid
+  eloA        Int       @map("elo_a")
+  eloB        Int       @map("elo_b")
+  matchId     String?   @map("match_id") @db.Uuid
+  status      String    @default("open")
+  winnerSide  String?   @map("winner_side")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  resolvedAt  DateTime? @map("resolved_at") @db.Timestamptz(6)
+  sessionId   String?   @map("session_id") @db.Uuid
+
+  @@index([status, createdAt(sort: Desc)], map: "proposed_matches_status_idx")
+  @@index([sessionId, status], map: "proposed_matches_session_idx")
+  @@map("proposed_matches")
+}
+
+model PlaySession {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label     String?
+  status    String    @default("active")
+  startedAt DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(6)
+
+  @@index([startedAt(sort: Desc)], map: "play_sessions_started_at_idx")
+  @@map("play_sessions")
+}
+
+model SessionPlayer {
+  sessionId String    @map("session_id") @db.Uuid
+  playerId  String    @map("player_id") @db.Uuid
+  isPresent Boolean   @default(true) @map("is_present")
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt    DateTime? @map("left_at") @db.Timestamptz(6)
+
+  @@id([sessionId, playerId])
+  @@index([playerId], map: "session_players_player_idx")
+  @@map("session_players")
+}
+
+model Wager {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposedMatchId String   @map("proposed_match_id") @db.Uuid
+  playerId        String   @map("player_id") @db.Uuid
+  side            String
+  stake           Int
+  odds            Decimal  @db.Decimal(5, 2)
+  payout          Int?
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([proposedMatchId, playerId])
+  @@index([proposedMatchId], map: "wagers_proposed_match_idx")
+  @@index([playerId], map: "wagers_player_idx")
+  @@map("wagers")
+}
+
+model VoicePromptConfig {
+  id             Int      @id @default(1)
+  intro          String
+  goatTemplate   String   @map("goat_template")
+  roastTemplate  String   @map("roast_template")
+  mixedTemplate  String   @map("mixed_template")
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("voice_prompt_config")
+}

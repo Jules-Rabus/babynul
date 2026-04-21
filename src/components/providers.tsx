@@ -19,7 +19,7 @@ function MSWBootstrap({ children }: { children: React.ReactNode }) {
       try {
         console.info("[MSW] bootstrap start…");
         const { setupWorker } = await import("msw/browser");
-        const { makeHandlers } = await import("@/test/msw/handlers/supabase-browser");
+        const { makeHandlers } = await import("@/test/msw/handlers/api-browser");
         const handlers = makeHandlers();
         console.info(`[MSW] ${handlers.length} handlers enregistrés.`);
         const worker = setupWorker(...handlers);
