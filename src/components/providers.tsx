@@ -15,40 +15,31 @@ function MSWBootstrap({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return;
     let cancelled = false;
 
-    // Garde-fou : si MSW hang (SW qui attend son activation sur un 1er chargement),
-    // on débloque l'UI après 2,5 s — l'app rend quand même, les appels réels
-    // iront sur l'URL factice https://mock.supabase.local (inoffensif, échecs fetch).
-    const safety = setTimeout(() => {
-      if (!cancelled && !document.querySelector("[data-msw-ready]")) {
-        console.warn("[MSW] timeout de bootstrap — rendu sans garantie d'interception.");
-        setReady(true);
-      }
-    }, 2500);
-
     (async () => {
       try {
+        console.info("[MSW] bootstrap start…");
         const { setupWorker } = await import("msw/browser");
         const { makeHandlers } = await import("@/test/msw/handlers/supabase-browser");
-        const worker = setupWorker(...makeHandlers());
+        const handlers = makeHandlers();
+        console.info(`[MSW] ${handlers.length} handlers enregistrés.`);
+        const worker = setupWorker(...handlers);
         await worker.start({
-          onUnhandledRequest: "bypass",
+          onUnhandledRequest: "warn",
           serviceWorker: { url: "/mockServiceWorker.js" },
-          quiet: true,
+          waitUntilReady: true,
         });
         if (!cancelled) {
-          console.info("🎭 MSW mock mode ON — tous les appels Supabase sont interceptés.");
-          document.body.setAttribute("data-msw-ready", "1");
+          console.info("🎭 MSW mock mode ACTIF — toutes les requêtes Supabase sont interceptées.");
           setReady(true);
         }
       } catch (err) {
-        console.error("[MSW bootstrap] échec — on rend l'app sans interception :", err);
+        console.error("[MSW bootstrap] échec :", err);
         if (!cancelled) setReady(true);
       }
     })();
 
     return () => {
       cancelled = true;
-      clearTimeout(safety);
     };
   }, [enabled]);
 
