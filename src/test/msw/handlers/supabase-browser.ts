@@ -155,7 +155,9 @@ function applyEqFilters(rows: Row[], url: URL): Row[] {
 }
 
 function getBaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://mock.supabase.local";
+  // Doit matcher src/lib/supabase/env.ts : si URL absente en mode mock, on
+  // retombe sur https://mock.supabase.local (valeur identique à MOCK_URL).
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://mock.supabase.local";
   return url.replace(/\/$/, "");
 }
 
