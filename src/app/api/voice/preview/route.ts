@@ -6,6 +6,7 @@ import {
   type VoicePromptTemplates,
 } from "@/lib/voice/build-announce-prompt";
 import { generateAnnounceText } from "@/lib/voice/generate-announce-text";
+import { getTTSProvider } from "@/lib/voice/registry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,12 +14,12 @@ export const dynamic = "force-dynamic";
 type ReqBody = {
   templates?: Partial<VoicePromptTemplates>;
   context?: AnnounceContext;
+  withAudio?: boolean;
 };
 
 /**
- * Dry-run : renvoie uniquement le texte généré (pas d'audio).
- * Utilisé par l'éditeur de prompt côté admin pour tester une config
- * non encore sauvegardée.
+ * Dry-run de l'éditeur de prompt admin. Renvoie la phrase générée
+ * et, si withAudio=true, l'audio TTS en base64.
  */
 export async function POST(req: Request) {
   let body: ReqBody = {};
@@ -47,7 +48,15 @@ export async function POST(req: Request) {
   try {
     const prompt = buildAnnouncePrompt(ctx, templates);
     const text = await generateAnnounceText(prompt);
-    return NextResponse.json({ text, prompt });
+
+    if (!body.withAudio) {
+      return NextResponse.json({ text, prompt });
+    }
+
+    const tts = getTTSProvider();
+    const { audio, contentType } = await tts.speak(text);
+    const audioBase64 = Buffer.from(audio).toString("base64");
+    return NextResponse.json({ text, prompt, audio: audioBase64, contentType });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur preview." },

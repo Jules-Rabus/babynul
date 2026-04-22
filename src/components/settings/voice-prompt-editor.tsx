@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Mic2, RotateCcw, Sparkles, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Mic2, RotateCcw, Sparkles, Save, Volume2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -50,6 +50,14 @@ export function VoicePromptEditor() {
   const [form, setForm] = useState<VoicePromptTemplates>(DEFAULT_VOICE_TEMPLATES);
   const [preview, setPreview] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const audioUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (config) setForm(config);
@@ -72,9 +80,17 @@ export function VoicePromptEditor() {
     }
   };
 
+  const resetAudio = () => {
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+  };
+
   const handleTest = async () => {
     setPreviewLoading(true);
     setPreview(null);
+    resetAudio();
     try {
       const res = await fetch("/api/voice/preview", {
         method: "POST",
@@ -91,6 +107,46 @@ export function VoicePromptEditor() {
       toast.error(err instanceof Error ? err.message : "Erreur preview.");
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const handleTestWithVoice = async () => {
+    setAudioLoading(true);
+    setPreview(null);
+    resetAudio();
+    try {
+      const res = await fetch("/api/voice/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templates: form, withAudio: true }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        text: string;
+        audio?: string;
+        contentType?: string;
+      };
+      setPreview(data.text);
+      if (data.audio) {
+        const binary = atob(data.audio);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: data.contentType ?? "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        audioUrlRef.current = url;
+        const audio = new Audio(url);
+        audio.play().catch((e) => {
+          console.warn("[voice] autoplay blocked:", e);
+          toast.info("Lecture auto bloquée par le navigateur.");
+        });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur preview voix.");
+    } finally {
+      setAudioLoading(false);
     }
   };
 
@@ -134,9 +190,23 @@ export function VoicePromptEditor() {
             <RotateCcw className="h-4 w-4" />
             Valeurs par défaut
           </Button>
-          <Button type="button" variant="secondary" onClick={handleTest} disabled={previewLoading}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleTest}
+            disabled={previewLoading || audioLoading}
+          >
             <Sparkles className="h-4 w-4" />
-            {previewLoading ? "Génération..." : "Tester"}
+            {previewLoading ? "Génération..." : "Tester (texte)"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleTestWithVoice}
+            disabled={previewLoading || audioLoading}
+          >
+            <Volume2 className="h-4 w-4" />
+            {audioLoading ? "Génération..." : "Tester (texte + voix)"}
           </Button>
           <Button type="button" onClick={handleSave} disabled={save.isPending || !unlocked}>
             <Save className="h-4 w-4" />
@@ -145,7 +215,7 @@ export function VoicePromptEditor() {
         </div>
 
         {preview && (
-          <div className="rounded-xl bg-muted/40 p-3 text-sm">
+          <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Aperçu (contexte : Jules en série GOAT, Inès en série ROAST)
             </p>
