@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AdminButton } from "@/components/admin-button";
@@ -14,7 +16,40 @@ import { TournamentPanel } from "@/components/tournament/tournament-panel";
 import { WagersPanel } from "@/components/wagers/wagers-panel";
 import { VoicePromptEditor } from "@/components/settings/voice-prompt-editor";
 
+const VALID_TABS = [
+  "ranking",
+  "record",
+  "matchmaking",
+  "tournament",
+  "wagers",
+  "players",
+  "settings",
+] as const;
+type TabValue = (typeof VALID_TABS)[number];
+
+function isTabValue(v: string | null, unlocked: boolean): v is TabValue {
+  if (!v) return false;
+  if (v === "settings") return unlocked;
+  return (VALID_TABS as readonly string[]).includes(v);
+}
+
 export function HomeShell({ unlocked }: { unlocked: boolean }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabValue = isTabValue(tabParam, unlocked) ? tabParam : "ranking";
+
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (value === "ranking") next.delete("tab");
+      else next.set("tab", value);
+      const qs = next.toString();
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   return (
     <AdminProvider unlocked={unlocked}>
       <main className="min-h-screen">
@@ -35,7 +70,7 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
         </header>
 
         <section className="container py-6">
-          <Tabs defaultValue="ranking">
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <div className="-mx-4 overflow-x-auto px-4 scrollbar-none">
               <TabsList className="w-max">
                 <TabsTrigger value="ranking">Classement</TabsTrigger>
