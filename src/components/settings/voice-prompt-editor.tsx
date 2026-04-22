@@ -221,7 +221,7 @@ export function VoicePromptEditor() {
         {preview && (
           <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Aperçu (contexte : Jules en série GOAT, Inès en série ROAST)
+              Aperçu (contexte : Lucas en série GOAT, Sarah en série ROAST)
             </p>
             <p className="whitespace-pre-wrap">{preview}</p>
           </div>

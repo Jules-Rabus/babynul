@@ -34,14 +34,16 @@ export async function POST(req: Request) {
     ...(body.templates ?? {}),
   };
 
+  // Contexte fictif. Les "noms" ici sont des announceName (surnom si défini côté
+  // player, sinon prénom) — c'est ce que reçoit le LLM en prod, cf announceName().
   const ctx: AnnounceContext = body.context ?? {
     teamA: [
-      { id: "demo1", name: "Jules", form: { kind: "goat", streak: 3 } },
-      { id: "demo2", name: "Marie", form: { kind: "neutral" } },
+      { id: "demo1", name: "Lucas", form: { kind: "goat", streak: 4 } },
+      { id: "demo2", name: "Théo", form: { kind: "neutral" } },
     ],
     teamB: [
-      { id: "demo3", name: "Inès", form: { kind: "roast", streak: 3 } },
-      { id: "demo4", name: "Nico", form: { kind: "neutral" } },
+      { id: "demo3", name: "Sarah", form: { kind: "roast", streak: 3 } },
+      { id: "demo4", name: "Antoine", form: { kind: "neutral" } },
     ],
   };
 
