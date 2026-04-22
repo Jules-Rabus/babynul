@@ -139,8 +139,12 @@ export function VoicePromptEditor() {
         audioUrlRef.current = url;
         const audio = new Audio(url);
         audio.play().catch((e) => {
-          console.warn("[voice] autoplay blocked:", e);
-          toast.info("Lecture auto bloquée par le navigateur.");
+          console.warn("[voice] play failed:", e);
+          toast.error(
+            e instanceof Error && e.name === "NotAllowedError"
+              ? "Lecture auto bloquée par le navigateur."
+              : "Impossible de lire l'audio généré.",
+          );
         });
       }
     } catch (err) {
