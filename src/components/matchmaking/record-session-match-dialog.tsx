@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Volume2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,18 +26,36 @@ type Props = {
   onClose: () => void;
 };
 
+function labelFor(match: ProposedMatchWithPlayers, side: "A" | "B"): string {
+  const fmt = (p: { first_name: string; nickname?: string | null } | null | undefined) =>
+    p ? displayName(p) : "?";
+  if (side === "A") {
+    if (match.mode === "individual") return fmt(match.team_a_p1_player);
+    return `${fmt(match.team_a_p1_player)} & ${fmt(match.team_a_p2_player)}`;
+  }
+  if (match.mode === "individual") return fmt(match.team_b_p1_player);
+  return `${fmt(match.team_b_p1_player)} & ${fmt(match.team_b_p2_player)}`;
+}
+
 export function RecordSessionMatchDialog({ match, sessionId, onClose }: Props) {
   const [scoreA, setScoreA] = useState("10");
   const [scoreB, setScoreB] = useState("0");
+  const [phase, setPhase] = useState<"input" | "after">("input");
   const record = useRecordMatch();
-  const { announce } = useAnnounceNextMatch();
+  const { announce, loading: announceLoading } = useAnnounceNextMatch();
   const voice = useVoiceEnabled();
   const { data: sessionProposed = [] } = useSessionProposedMatches(sessionId);
 
   useEffect(() => {
     setScoreA("10");
     setScoreB("0");
+    setPhase("input");
   }, [match?.id]);
+
+  // Cherche le prochain match ouvert différent de celui qu'on vient de saisir.
+  const nextMatch = match
+    ? sessionProposed.find((m) => m.status === "open" && m.id !== match.id)
+    : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,85 +86,106 @@ export function RecordSessionMatchDialog({ match, sessionId, onClose }: Props) {
       });
       toast.success("Match enregistré.");
       void fireVictoryEffects();
-
-      // Trouve le prochain match ouvert (hors celui qu'on vient de fermer).
-      if (voice.enabled && sessionId) {
-        const next = sessionProposed.find(
-          (m) => m.status === "open" && m.id !== match.id,
-        );
-        if (next) {
-          announce({ proposedMatchId: next.id, sessionId }).catch((err) =>
-            console.error("[voice] announce failed:", err),
-          );
-        }
-      }
-
-      onClose();
+      setPhase("after");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
   };
 
-  const teamALabel = match
-    ? match.mode === "team"
-      ? `${match.team_a_p1_player ? displayName(match.team_a_p1_player) : "?"} & ${match.team_a_p2_player ? displayName(match.team_a_p2_player) : "?"}`
-      : match.team_a_p1_player ? displayName(match.team_a_p1_player) : "?"
-    : "";
+  const handleAnnounce = async () => {
+    if (!nextMatch || !sessionId) {
+      onClose();
+      return;
+    }
+    try {
+      await announce({ proposedMatchId: nextMatch.id, sessionId });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur voice.");
+    } finally {
+      onClose();
+    }
+  };
 
-  const teamBLabel = match
-    ? match.mode === "team"
-      ? `${match.team_b_p1_player ? displayName(match.team_b_p1_player) : "?"} & ${match.team_b_p2_player ? displayName(match.team_b_p2_player) : "?"}`
-      : match.team_b_p1_player ? displayName(match.team_b_p1_player) : "?"
-    : "";
+  const teamALabel = match ? labelFor(match, "A") : "";
+  const teamBLabel = match ? labelFor(match, "B") : "";
+
+  const showAnnounce = phase === "after" && voice.enabled && !!nextMatch;
 
   return (
     <Dialog open={!!match} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Saisir le score</DialogTitle>
+          <DialogTitle>{phase === "input" ? "Saisir le score" : "Match enregistré"}</DialogTitle>
           <DialogDescription>
-            {match && (
+            {match && phase === "input" && (
               <>
                 <strong>{teamALabel}</strong> vs <strong>{teamBLabel}</strong>
               </>
             )}
+            {phase === "after" && nextMatch && (
+              <>
+                Prochain match :{" "}
+                <strong>{labelFor(nextMatch, "A")}</strong> vs{" "}
+                <strong>{labelFor(nextMatch, "B")}</strong>
+              </>
+            )}
+            {phase === "after" && !nextMatch && (
+              <>Aucun autre match ouvert pour le moment.</>
+            )}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="session-score-a">Équipe A — {teamALabel}</Label>
-              <Input
-                id="session-score-a"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                value={scoreA}
-                onChange={(e) => setScoreA(e.target.value)}
-                autoFocus
-              />
+
+        {phase === "input" && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="session-score-a">Équipe A — {teamALabel}</Label>
+                <Input
+                  id="session-score-a"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={scoreA}
+                  onChange={(e) => setScoreA(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="session-score-b">Équipe B — {teamBLabel}</Label>
+                <Input
+                  id="session-score-b"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={scoreB}
+                  onChange={(e) => setScoreB(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="session-score-b">Équipe B — {teamBLabel}</Label>
-              <Input
-                id="session-score-b"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                value={scoreB}
-                onChange={(e) => setScoreB(e.target.value)}
-              />
-            </div>
-          </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={record.isPending}>
+                {record.isPending ? "Enregistrement..." : "Enregistrer"}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
+
+        {phase === "after" && (
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Annuler
+              Fermer
             </Button>
-            <Button type="submit" disabled={record.isPending}>
-              {record.isPending ? "Enregistrement..." : "Enregistrer"}
-            </Button>
+            {showAnnounce && (
+              <Button type="button" onClick={handleAnnounce} disabled={announceLoading}>
+                <Volume2 className="h-4 w-4" />
+                {announceLoading ? "Annonce..." : "Annoncer le prochain match"}
+              </Button>
+            )}
           </DialogFooter>
-        </form>
+        )}
       </DialogContent>
     </Dialog>
   );

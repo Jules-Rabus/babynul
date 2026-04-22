@@ -25,13 +25,10 @@ export function SessionControls() {
 
   const handleStart = async () => {
     try {
-      const today = new Date().toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      });
-      await startSession.mutateAsync({ label: `Tournoi du ${today}` });
-      toast.success("Tournoi démarré.");
+      const now = new Date();
+      const label = `Partie du ${now.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+      await startSession.mutateAsync({ label });
+      toast.success("Partie démarrée.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
@@ -64,15 +61,16 @@ export function SessionControls() {
       <Card>
         <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold">Aucun tournoi en cours</p>
+            <p className="text-sm font-semibold">Aucune partie en cours</p>
             <p className="text-xs text-muted-foreground">
-              Démarrez un tournoi du jour pour persister les matchs, compter qui joue le moins, et tout recaler si quelqu&apos;un part.
+              Cochez un joueur pour démarrer une partie, ou cliquez ci-contre
+              pour en lancer une explicitement.
             </p>
           </div>
           {unlocked ? (
             <Button onClick={handleStart} disabled={startSession.isPending}>
               <Play className="h-4 w-4" />
-              Démarrer un tournoi
+              Démarrer une partie
             </Button>
           ) : (
             <span className="text-xs italic text-muted-foreground">(admin uniquement)</span>
@@ -91,7 +89,7 @@ export function SessionControls() {
     <Card>
       <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold">{active.session.label ?? "Tournoi en cours"}</p>
+          <p className="text-sm font-semibold">{active.session.label ?? "Partie en cours"}</p>
           <p className="text-xs text-muted-foreground">
             Démarrée à {started} · {active.participants.filter((p) => p.is_present).length} présent
             {active.participants.filter((p) => p.is_present).length > 1 ? "s" : ""}
@@ -107,9 +105,9 @@ export function SessionControls() {
       <Dialog open={confirmEnd} onOpenChange={setConfirmEnd}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Clôturer le tournoi ?</DialogTitle>
+            <DialogTitle>Clôturer la partie ?</DialogTitle>
             <DialogDescription>
-              Les matchs ouverts resteront annulables, et les matchs joués garderont leur lien à la session pour l&apos;historique.
+              Les matchs ouverts resteront annulables, et les matchs joués garderont leur lien à la partie pour l&apos;historique.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

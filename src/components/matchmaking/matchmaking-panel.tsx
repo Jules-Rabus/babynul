@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { usePlayers } from "@/lib/queries/players";
-import { generateMatches, type ProposedMatch } from "@/lib/matchmaking";
+import { generateMatches } from "@/lib/matchmaking";
 import { Shuffle, Users, Coins, Swords, Trash2, PlayCircle, Volume2, VolumeX, Trophy } from "lucide-react";
 import { useAdmin } from "@/components/admin-context";
 import {
@@ -28,6 +28,7 @@ import {
   useActiveSession,
   useSessionPresence,
   useCancelOpenSessionMatches,
+  useStartSession,
 } from "@/lib/queries/play-sessions";
 import { detectRivalries, rivalryLabel, type Rivalry } from "@/lib/rivalries";
 import { displayName } from "@/lib/player-display";
@@ -35,7 +36,6 @@ import { usePlayerForms } from "@/hooks/use-player-forms";
 import { useVoiceEnabled } from "@/lib/voice/use-announce-next-match";
 import { SessionControls } from "./session-controls";
 import { RecordSessionMatchDialog } from "./record-session-match-dialog";
-import { RecordEphemeralMatchDialog } from "./record-ephemeral-match-dialog";
 import { toast } from "sonner";
 
 export function MatchmakingPanel() {
@@ -52,16 +52,23 @@ export function MatchmakingPanel() {
   const cancelProposed = useCancelProposedMatch();
   const setPresence = useSessionPresence();
   const cancelAllOpen = useCancelOpenSessionMatches();
+  const startSession = useStartSession();
 
-  // Fallback mode éphémère si aucune session active
-  const [ephemeralIds, setEphemeralIds] = useState<Set<string>>(new Set());
-  const [ephemeralMatches, setEphemeralMatches] = useState<ProposedMatch[]>([]);
   const [search, setSearch] = useState("");
   const [toLeave, setToLeave] = useState<string | null>(null);
   const [toRecord, setToRecord] = useState<ProposedMatchWithPlayers | null>(null);
-  const [ephemeralToRecord, setEphemeralToRecord] = useState<ProposedMatch | null>(null);
 
   const voice = useVoiceEnabled();
+
+  // Crée une session implicite si aucune n'est active, puis renvoie son id.
+  // On ne veut plus de "mode local" — toute action de matchmaking persiste en DB
+  // et se propage aux autres utilisateurs via SSE.
+  const ensureActiveSession = async (): Promise<string> => {
+    if (sessionId) return sessionId;
+    const now = new Date();
+    const label = `Partie du ${now.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+    return startSession.mutateAsync({ label });
+  };
 
   const requireAdmin = (action: () => void) => {
     if (!unlocked) {
@@ -71,14 +78,13 @@ export function MatchmakingPanel() {
     action();
   };
 
-  const presentPlayerIds = useMemo(() => {
-    if (sessionId) {
-      return new Set(
+  const presentPlayerIds = useMemo(
+    () =>
+      new Set(
         active?.participants.filter((p) => p.is_present).map((p) => p.player_id) ?? [],
-      );
-    }
-    return ephemeralIds;
-  }, [sessionId, active, ephemeralIds]);
+      ),
+    [active],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -124,27 +130,36 @@ export function MatchmakingPanel() {
     );
 
   const toggle = async (id: string) => {
-    if (!sessionId) {
-      setEphemeralIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
-      return;
-    }
-    const currently = presentPlayerIds.has(id);
-    // Si on retire un joueur qui a des matchs ouverts → confirmation.
-    if (currently && hasOpenMatch(id)) {
-      setToLeave(id);
-      return;
-    }
     try {
+      const sid = await ensureActiveSession();
+      const currently = presentPlayerIds.has(id);
+      if (currently && hasOpenMatch(id)) {
+        setToLeave(id);
+        return;
+      }
       await setPresence.mutateAsync({
-        sessionId,
+        sessionId: sid,
         playerId: id,
         present: !currently,
       });
+      // Proposer une régénération si la composition vient de changer
+      // et qu'il reste au moins 4 joueurs pour en profiter.
+      if (unlocked && openSessionMatches.length > 0 && presentPlayerIds.size >= 4) {
+        toast.info(
+          currently
+            ? "Joueur absent. Régénérer la suite ?"
+            : "Nouveau joueur. L'intégrer dans les prochains matchs ?",
+          {
+            action: {
+              label: "Régénérer",
+              onClick: () => {
+                requireAdmin(regenerate);
+              },
+            },
+            duration: 8000,
+          },
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
@@ -158,8 +173,16 @@ export function MatchmakingPanel() {
         playerId: toLeave,
         present: false,
       });
-      toast.success("Joueur retiré. Matchs ouverts annulés, mises remboursées.");
       setToLeave(null);
+      toast.success("Joueur retiré. Matchs ouverts annulés, mises remboursées.", {
+        action: {
+          label: "Régénérer la suite",
+          onClick: () => {
+            requireAdmin(regenerate);
+          },
+        },
+        duration: 8000,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
@@ -171,15 +194,11 @@ export function MatchmakingPanel() {
       toast.error("Il faut au moins 4 joueurs présents.");
       return;
     }
-    const generated = generateMatches(selected, {
-      sessionGamesPlayed: sessionGamesByPlayer,
-    });
-    if (!sessionId) {
-      setEphemeralMatches(generated);
-      return;
-    }
-    // Persister en proposed_matches, lié à la session.
     try {
+      const sid = await ensureActiveSession();
+      const generated = generateMatches(selected, {
+        sessionGamesPlayed: sessionGamesByPlayer,
+      });
       for (const m of generated) {
         const [a1, a2] = m.teamA.players;
         const [b1, b2] = m.teamB.players;
@@ -191,19 +210,19 @@ export function MatchmakingPanel() {
           team_b_p2: b2.id,
           elo_a: m.teamA.avgElo,
           elo_b: m.teamB.avgElo,
-          session_id: sessionId,
+          session_id: sid,
         });
       }
-      toast.success(`${generated.length} matchs générés et persistés.`);
+      toast.success(`${generated.length} matchs générés.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
   };
 
   const regenerate = async () => {
-    if (!sessionId) return;
     try {
-      await cancelAllOpen.mutateAsync(sessionId);
+      const sid = await ensureActiveSession();
+      await cancelAllOpen.mutateAsync(sid);
       await generate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
@@ -215,6 +234,7 @@ export function MatchmakingPanel() {
   const openRivalryBetting = async (r: Rivalry) => {
     const avg = (arr: { elo: number }[]) => Math.round(arr.reduce((s, p) => s + p.elo, 0) / arr.length);
     try {
+      const sid = await ensureActiveSession();
       await createProposed.mutateAsync({
         mode: r.mode,
         team_a_p1: r.teamA[0].id,
@@ -223,28 +243,9 @@ export function MatchmakingPanel() {
         team_b_p2: r.teamB[1]?.id ?? null,
         elo_a: avg(r.teamA),
         elo_b: avg(r.teamB),
-        session_id: sessionId,
+        session_id: sid,
       });
       toast.success("Paris ouverts sur ce face-à-face.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur.");
-    }
-  };
-
-  const openEphemeralBetting = async (m: ProposedMatch) => {
-    const [a1, a2] = m.teamA.players;
-    const [b1, b2] = m.teamB.players;
-    try {
-      await createProposed.mutateAsync({
-        mode: "team",
-        team_a_p1: a1.id,
-        team_a_p2: a2.id,
-        team_b_p1: b1.id,
-        team_b_p2: b2.id,
-        elo_a: m.teamA.avgElo,
-        elo_b: m.teamB.avgElo,
-      });
-      toast.success("Paris ouverts pour ce match.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur.");
     }
@@ -257,25 +258,23 @@ export function MatchmakingPanel() {
     <div className="space-y-4">
       <SessionControls />
 
-      {sessionId && (
+      {voice.mounted && (
         <div className="flex items-center justify-end gap-2">
-          {voice.mounted && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={voice.toggle}
-              title={voice.enabled ? "Couper le mode vocal" : "Activer le mode vocal"}
-            >
-              {voice.enabled ? (
-                <Volume2 className="h-4 w-4 text-primary" />
-              ) : (
-                <VolumeX className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className="hidden sm:inline">
-                {voice.enabled ? "Mode vocal actif" : "Mode vocal"}
-              </span>
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={voice.toggle}
+            title={voice.enabled ? "Couper le mode vocal" : "Activer le mode vocal"}
+          >
+            {voice.enabled ? (
+              <Volume2 className="h-4 w-4 text-primary" />
+            ) : (
+              <VolumeX className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="hidden sm:inline">
+              {voice.enabled ? "Mode vocal actif" : "Mode vocal"}
+            </span>
+          </Button>
         </div>
       )}
 
@@ -287,9 +286,8 @@ export function MatchmakingPanel() {
               Joueurs présents
             </CardTitle>
             <CardDescription>
-              {sessionId
-                ? "Cliquez pour marquer un joueur comme présent ou absent. Les départs annulent les matchs ouverts et remboursent les mises."
-                : "Sélection locale (démarrez un tournoi du jour pour persister)."}
+              Cliquez pour marquer un joueur comme présent ou absent. Les
+              départs annulent les matchs ouverts et remboursent les mises.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -314,7 +312,7 @@ export function MatchmakingPanel() {
                     key={p.id}
                     type="button"
                     onClick={() => toggle(p.id)}
-                    disabled={Boolean(sessionId) && setPresence.isPending}
+                    disabled={setPresence.isPending || startSession.isPending}
                     className={[
                       "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors",
                       on
@@ -326,7 +324,7 @@ export function MatchmakingPanel() {
                     {badge && <span className="flex items-center">{badge.icon}</span>}
                     {displayName(p)}
                     <span className="text-xs opacity-70">{p.elo}</span>
-                    {sessionId && on && (
+                    {on && (
                       <span className="rounded-full bg-primary-foreground/20 px-1.5 text-[10px] font-semibold tabular-nums">
                         {sessionCount}
                       </span>
@@ -343,22 +341,30 @@ export function MatchmakingPanel() {
                 {presentPlayerIds.size} présent{presentPlayerIds.size > 1 ? "s" : ""}
               </span>
               <div className="flex flex-wrap gap-2">
-                {sessionId && openSessionMatches.length > 0 && (
+                {canGenerate && (
                   <Button
                     variant="outline"
                     onClick={() => requireAdmin(regenerate)}
-                    disabled={cancelAllOpen.isPending || createProposed.isPending}
+                    disabled={
+                      cancelAllOpen.isPending ||
+                      createProposed.isPending ||
+                      startSession.isPending
+                    }
                   >
                     <Shuffle className="h-4 w-4" />
                     Régénérer la suite
                   </Button>
                 )}
                 <Button
-                  onClick={() => (sessionId ? requireAdmin(generate) : generate())}
-                  disabled={!canGenerate || createProposed.isPending}
+                  onClick={() => requireAdmin(generate)}
+                  disabled={
+                    !canGenerate ||
+                    createProposed.isPending ||
+                    startSession.isPending
+                  }
                 >
                   <Shuffle className="h-4 w-4" />
-                  {sessionId ? "Générer les matchs" : "Générer la journée"}
+                  Générer les matchs
                 </Button>
               </div>
             </div>
@@ -368,106 +374,51 @@ export function MatchmakingPanel() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {sessionId ? `Matchs du tournoi (${openSessionMatches.length} ouverts)` : "Matchs proposés"}
+              Matchs proposés ({openSessionMatches.length} ouverts)
             </CardTitle>
             <CardDescription>
-              Équipes équilibrées par Elo. Les joueurs les moins actifs du tournoi passent en priorité.
+              Équipes équilibrées par Elo. Les joueurs qui ont le moins joué passent en priorité.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {sessionId ? (
-              openSessionMatches.length === 0 && playedSessionMatches.length === 0 ? (
-                <p className="rounded-md bg-muted p-6 text-center text-sm text-muted-foreground">
-                  Sélectionnez au moins 4 joueurs présents puis cliquez sur « Générer les matchs ».
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {openSessionMatches.length > 0 && (
-                    <ol className="space-y-2">
-                      {openSessionMatches.map((m, i) => (
+            {openSessionMatches.length === 0 && playedSessionMatches.length === 0 ? (
+              <p className="rounded-md bg-muted p-6 text-center text-sm text-muted-foreground">
+                Sélectionnez au moins 4 joueurs présents puis cliquez sur « Générer les matchs ».
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {openSessionMatches.length > 0 && (
+                  <ol className="space-y-2">
+                    {openSessionMatches.map((m, i) => (
+                      <SessionMatchCard
+                        key={m.id}
+                        match={m}
+                        index={i}
+                        onCancel={() => requireAdmin(() => cancelProposed.mutate(m.id))}
+                        onRecord={() => requireAdmin(() => setToRecord(m))}
+                      />
+                    ))}
+                  </ol>
+                )}
+                {playedSessionMatches.length > 0 && (
+                  <section>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Matchs joués ({playedSessionMatches.length})
+                    </h3>
+                    <ol className="space-y-1">
+                      {playedSessionMatches.map((m) => (
                         <SessionMatchCard
                           key={m.id}
                           match={m}
-                          index={i}
-                          onCancel={() => requireAdmin(() => cancelProposed.mutate(m.id))}
-                          onRecord={() => requireAdmin(() => setToRecord(m))}
+                          compact
+                          onCancel={() => {}}
+                          onRecord={() => {}}
                         />
                       ))}
                     </ol>
-                  )}
-                  {playedSessionMatches.length > 0 && (
-                    <section>
-                      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Matchs joués ({playedSessionMatches.length})
-                      </h3>
-                      <ol className="space-y-1">
-                        {playedSessionMatches.map((m) => (
-                          <SessionMatchCard
-                            key={m.id}
-                            match={m}
-                            compact
-                            onCancel={() => {}}
-                            onRecord={() => {}}
-                          />
-                        ))}
-                      </ol>
-                    </section>
-                  )}
-                </div>
-              )
-            ) : ephemeralMatches.length === 0 ? (
-              <p className="rounded-md bg-muted p-6 text-center text-sm text-muted-foreground">
-                Sélectionnez au moins 4 joueurs puis cliquez sur « Générer la journée ».
-              </p>
-            ) : (
-              <ol className="space-y-2">
-                {ephemeralMatches.map((m, i) => (
-                  <li
-                    key={m.id}
-                    className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3 text-sm"
-                  >
-                    <Badge variant="outline" className="font-mono">
-                      #{i + 1}
-                    </Badge>
-                    <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                      <TeamLabel team={m.teamA} />
-                      <span className="text-xs font-semibold text-muted-foreground">VS</span>
-                      <TeamLabel team={m.teamB} />
-                      <Badge variant={m.eloGap < 80 ? "secondary" : "accent"}>Δ{m.eloGap}</Badge>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => requireAdmin(() => setEphemeralToRecord(m))}
-                        title="Saisir le score de ce match"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                        <span className="hidden sm:inline">Saisir le score</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => requireAdmin(() => openEphemeralBetting(m))}
-                        disabled={createProposed.isPending}
-                        title="Ouvrir les paris sur ce match"
-                      >
-                        <Coins className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setEphemeralMatches((prev) => prev.filter((x) => x.id !== m.id))
-                        }
-                        title="Retirer ce match de la liste"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+                  </section>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -521,14 +472,6 @@ export function MatchmakingPanel() {
         match={toRecord}
         sessionId={sessionId}
         onClose={() => setToRecord(null)}
-      />
-
-      <RecordEphemeralMatchDialog
-        match={ephemeralToRecord}
-        onClose={() => setEphemeralToRecord(null)}
-        onRecorded={() =>
-          setEphemeralMatches((prev) => prev.filter((x) => x.id !== ephemeralToRecord?.id))
-        }
       />
 
       <Dialog open={!!toLeave} onOpenChange={(o) => !o && setToLeave(null)}>
@@ -612,14 +555,3 @@ function labelFor(m: ProposedMatchWithPlayers, side: "A" | "B"): string {
   return `${fmt(m.team_b_p1_player)} & ${fmt(m.team_b_p2_player)}`;
 }
 
-function TeamLabel({ team }: { team: ProposedMatch["teamA"] }) {
-  const [a, b] = team.players;
-  return (
-    <div className="text-sm">
-      <div className="font-medium">
-        {displayName(a)} & {displayName(b)}
-      </div>
-      <div className="text-xs text-muted-foreground">Elo moyen {team.avgElo}</div>
-    </div>
-  );
-}

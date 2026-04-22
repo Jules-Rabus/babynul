@@ -26,18 +26,29 @@ export type VoicePromptTemplates = {
 
 export const DEFAULT_VOICE_TEMPLATES: VoicePromptTemplates = {
   intro: [
-    "Tu es le commentateur officiel du baby-foot de bureau Babynul.",
-    "Annonce le prochain match dans un style de speaker de sport, en français, tutoiement, ton vif et drôle.",
-    "La phrase doit durer ~6 à 10 secondes quand elle est lue.",
-    "Utilise les audio tags entre crochets pour moduler la voix : [excited], [pause], [teasing], [laughing].",
-    "N'ajoute aucun commentaire méta, sors juste la phrase prête à être lue.",
+    "### DIRECTOR'S NOTES",
+    "Style : commentateur officiel du baby-foot de bureau Babynul, français,",
+    "tutoiement, ton vif et drôle de speaker sportif, avec punchlines.",
+    "Pacing : débit rapide mais articulé, 6 à 10 secondes de lecture.",
+    "Accent : français standard.",
+    "",
+    "### AUDIO TAGS",
+    "Utilise 1 à 3 audio tags inline entre crochets pour moduler la voix.",
+    "Tags Gemini reconnus : [excited], [shouting], [whispers], [laughs],",
+    "[sighs], [sarcastically], [teasing], [short pause], [long pause].",
+    "Exemple : \"[excited] Allez c'est parti ! [short pause] Jules, tenant du titre...\"",
+    "N'utilise JAMAIS de balises XML-like (<emotion>, <pace>, <emphasis>) — elles",
+    "ne sont pas interprétées par ce moteur.",
+    "",
+    "### SORTIE",
+    "Sors uniquement la phrase prête à être lue, sans préambule ni guillemets.",
   ].join("\n"),
   goat_template:
-    "MODE GOAT : {names}. Fais une intro épique, couronne-les, exagère leur domination.",
+    "MODE GOAT : {names}. Fais une intro épique, couronne-les, exagère leur domination. Place un [excited] ou [shouting] au bon moment.",
   roast_template:
-    "MODE ROAST : {names}. Chambre-les gentiment, pique mais reste bon-enfant. Genre : \"aujourd'hui c'est peut-être le bon jour ?\"",
+    "MODE ROAST : {names}. Chambre-les gentiment avec un [teasing] ou [sarcastically]. Reste bon-enfant. Genre : \"aujourd'hui c'est peut-être le bon jour ?\"",
   mixed_template:
-    "Narration épique : un David vs Goliath, un combat entre champion et revenant, joue là-dessus.",
+    "Narration épique : un David vs Goliath, un combat entre champion et revenant. Joue le contraste avec un [short pause] entre les deux camps.",
 };
 
 function namesOf(players: AnnouncePlayer[]): string {

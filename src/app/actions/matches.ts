@@ -3,12 +3,13 @@
 import { prisma } from "@/lib/prisma";
 import { RecordMatchSchema } from "@/lib/schemas";
 import { assertAdmin } from "@/lib/admin-guard";
+import { publishEvent } from "@/lib/realtime/bus";
 
 export async function recordMatch(raw: unknown): Promise<string> {
   await assertAdmin();
   const input = RecordMatchSchema.parse(raw);
 
-  return prisma.$transaction(async (tx) => {
+  const matchId = await prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ record_match_v2: string }[]>`
       select public.record_match_v2(
         ${input.mode}::text,
@@ -21,8 +22,8 @@ export async function recordMatch(raw: unknown): Promise<string> {
         ${input.sessionId ?? null}::uuid
       )
     `;
-    const matchId = rows[0]?.record_match_v2;
-    if (!matchId) throw new Error("record_match_v2 a retourné un id vide.");
+    const id = rows[0]?.record_match_v2;
+    if (!id) throw new Error("record_match_v2 a retourné un id vide.");
 
     if (input.proposedMatchId) {
       const winnerSide = input.scoreA > input.scoreB ? "A" : "B";
@@ -30,12 +31,15 @@ export async function recordMatch(raw: unknown): Promise<string> {
         select public.resolve_proposed_match(
           ${input.proposedMatchId}::uuid,
           ${winnerSide}::text,
-          ${matchId}::uuid
+          ${id}::uuid
         )
       `;
     }
-    return matchId;
+    return id;
   });
+
+  publishEvent({ type: "match:recorded", sessionId: input.sessionId ?? null });
+  return matchId;
 }
 
 export async function undoLastMatch(): Promise<string> {
@@ -45,5 +49,6 @@ export async function undoLastMatch(): Promise<string> {
   `;
   const id = rows[0]?.undo_last_match;
   if (!id) throw new Error("Aucun match à annuler.");
+  publishEvent({ type: "match:recorded", sessionId: null });
   return id;
 }

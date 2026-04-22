@@ -8,6 +8,7 @@ import {
   CancelOpenSessionMatchesSchema,
 } from "@/lib/schemas";
 import { assertAdmin } from "@/lib/admin-guard";
+import { publishEvent } from "@/lib/realtime/bus";
 
 export async function startSession(raw: unknown): Promise<string> {
   await assertAdmin();
@@ -17,6 +18,7 @@ export async function startSession(raw: unknown): Promise<string> {
   `;
   const id = rows[0]?.start_play_session;
   if (!id) throw new Error("Impossible de démarrer le tournoi.");
+  publishEvent({ type: "session:started", sessionId: id });
   return id;
 }
 
@@ -26,6 +28,7 @@ export async function endSession(raw: unknown): Promise<void> {
   await prisma.$executeRaw`
     select public.end_play_session(${input.sessionId}::uuid)
   `;
+  publishEvent({ type: "session:ended", sessionId: input.sessionId });
 }
 
 export async function setSessionPresence(raw: unknown): Promise<void> {
@@ -48,6 +51,10 @@ export async function setSessionPresence(raw: unknown): Promise<void> {
       `;
     }
   });
+  publishEvent({ type: "session:presence-changed", sessionId: input.sessionId });
+  if (!input.present) {
+    publishEvent({ type: "proposed-match:cancelled", sessionId: input.sessionId });
+  }
 }
 
 export async function cancelOpenSessionMatches(raw: unknown): Promise<number> {
@@ -59,5 +66,6 @@ export async function cancelOpenSessionMatches(raw: unknown): Promise<number> {
       ${input.involvingPlayer ?? null}::uuid
     )
   `;
+  publishEvent({ type: "proposed-match:cancelled", sessionId: input.sessionId });
   return rows[0]?.cancel_open_matches_for_session ?? 0;
 }

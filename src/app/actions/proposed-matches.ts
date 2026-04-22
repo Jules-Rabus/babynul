@@ -7,6 +7,7 @@ import {
   ResolveProposedMatchSchema,
 } from "@/lib/schemas";
 import { assertAdmin } from "@/lib/admin-guard";
+import { publishEvent } from "@/lib/realtime/bus";
 
 export async function createProposedMatch(raw: unknown): Promise<string> {
   await assertAdmin();
@@ -24,20 +25,30 @@ export async function createProposedMatch(raw: unknown): Promise<string> {
     },
     select: { id: true },
   });
+  publishEvent({ type: "proposed-match:created", sessionId: input.session_id ?? null });
   return row.id;
 }
 
 export async function cancelProposedMatch(raw: unknown): Promise<void> {
   await assertAdmin();
   const input = CancelProposedMatchSchema.parse(raw);
+  const existing = await prisma.proposedMatch.findUnique({
+    where: { id: input.proposedMatchId },
+    select: { sessionId: true },
+  });
   await prisma.$executeRaw`
     select public.cancel_proposed_match(${input.proposedMatchId}::uuid)
   `;
+  publishEvent({ type: "proposed-match:cancelled", sessionId: existing?.sessionId ?? null });
 }
 
 export async function resolveProposedMatch(raw: unknown): Promise<void> {
   await assertAdmin();
   const input = ResolveProposedMatchSchema.parse(raw);
+  const existing = await prisma.proposedMatch.findUnique({
+    where: { id: input.proposedMatchId },
+    select: { sessionId: true },
+  });
   await prisma.$executeRaw`
     select public.resolve_proposed_match(
       ${input.proposedMatchId}::uuid,
@@ -45,4 +56,5 @@ export async function resolveProposedMatch(raw: unknown): Promise<void> {
       ${input.matchId ?? null}::uuid
     )
   `;
+  publishEvent({ type: "match:recorded", sessionId: existing?.sessionId ?? null });
 }

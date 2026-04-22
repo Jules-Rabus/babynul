@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "./error-boundary";
+import { useRealtimeInvalidator } from "@/hooks/use-realtime-invalidator";
 
 function MSWBootstrap({ children }: { children: React.ReactNode }) {
   const enabled = process.env.NEXT_PUBLIC_USE_MSW === "1";
@@ -53,12 +54,22 @@ function MSWBootstrap({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RealtimeBridge() {
+  useRealtimeInvalidator();
+  return null;
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 30_000, refetchOnWindowFocus: false },
+          queries: {
+            // Les invalidations passent désormais par SSE — on garde un filet
+            // au focus window au cas où la connexion SSE aurait été coupée.
+            staleTime: 5 * 60_000,
+            refetchOnWindowFocus: true,
+          },
         },
       }),
   );
@@ -66,6 +77,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
+        <RealtimeBridge />
         <ErrorBoundary>
           <MSWBootstrap>{children}</MSWBootstrap>
         </ErrorBoundary>
