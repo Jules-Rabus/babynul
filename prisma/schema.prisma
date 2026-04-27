@@ -102,11 +102,12 @@ model ProposedMatch {
 }
 
 model PlaySession {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  label     String?
-  status    String    @default("active")
-  startedAt DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  endedAt   DateTime? @map("ended_at") @db.Timestamptz(6)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label       String?
+  status      String    @default("active")
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(6)
+  targetScore Int       @default(10) @map("target_score")
 
   @@index([startedAt(sort: Desc)], map: "play_sessions_started_at_idx")
   @@map("play_sessions")
@@ -139,6 +140,55 @@ model Wager {
   @@index([proposedMatchId], map: "wagers_proposed_match_idx")
   @@index([playerId], map: "wagers_player_idx")
   @@map("wagers")
+}
+
+model Tournament {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label            String?
+  mode             String
+  size             Int
+  rounds           Int
+  targetScore      Int       @default(10) @map("target_score")
+  status           String    @default("active")
+  startedAt        DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt          DateTime? @map("ended_at") @db.Timestamptz(6)
+  championPlayerId String?   @map("champion_player_id") @db.Uuid
+  championTeamId   String?   @map("champion_team_id") @db.Uuid
+  sessionId        String?   @map("session_id") @db.Uuid
+
+  @@index([startedAt(sort: Desc)], map: "tournaments_started_at_idx")
+  @@index([status, startedAt(sort: Desc)], map: "tournaments_status_started_idx")
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  tournamentId String  @map("tournament_id") @db.Uuid
+  slot         Int
+  seed         Int
+  playerId     String? @map("player_id") @db.Uuid
+  teamP1Id     String? @map("team_p1_id") @db.Uuid
+  teamP2Id     String? @map("team_p2_id") @db.Uuid
+  label        String?
+
+  @@id([tournamentId, slot])
+  @@index([playerId], map: "tournament_participants_player_idx")
+  @@map("tournament_participants")
+}
+
+model TournamentMatch {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournamentId String  @map("tournament_id") @db.Uuid
+  round        Int
+  slot         Int
+  sideASlot    Int?    @map("side_a_slot")
+  sideBSlot    Int?    @map("side_b_slot")
+  winnerSlot   Int?    @map("winner_slot")
+  matchId      String? @map("match_id") @db.Uuid
+  status       String  @default("pending")
+
+  @@unique([tournamentId, round, slot])
+  @@index([tournamentId, status], map: "tournament_matches_status_idx")
+  @@map("tournament_matches")
 }
 
 model VoicePromptConfig {

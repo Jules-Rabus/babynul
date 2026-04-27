@@ -5,6 +5,9 @@ export type RealtimeEvent =
   | { type: "session:presence-changed"; sessionId: string }
   | { type: "session:started"; sessionId: string }
   | { type: "session:ended"; sessionId: string }
-  | { type: "wager:changed"; proposedMatchId: string };
+  | { type: "wager:changed"; proposedMatchId: string }
+  | { type: "tournament:created"; tournamentId: string }
+  | { type: "tournament:match-recorded"; tournamentId: string }
+  | { type: "tournament:ended"; tournamentId: string };
 
 export type RealtimeEventType = RealtimeEvent["type"];

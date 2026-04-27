@@ -36,6 +36,8 @@ import { usePlayerForms } from "@/hooks/use-player-forms";
 import { useVoiceEnabled } from "@/lib/voice/use-announce-next-match";
 import { SessionControls } from "./session-controls";
 import { RecordSessionMatchDialog } from "./record-session-match-dialog";
+import { DailyHistory } from "./daily-history";
+import { MatchBettingInline } from "@/components/wagers/match-betting-inline";
 import { toast } from "sonner";
 
 export function MatchmakingPanel() {
@@ -468,9 +470,12 @@ export function MatchmakingPanel() {
         </Card>
       )}
 
+      <DailyHistory />
+
       <RecordSessionMatchDialog
         match={toRecord}
         sessionId={sessionId}
+        targetScore={active?.session.target_score}
         onClose={() => setToRecord(null)}
       />
 
@@ -514,32 +519,42 @@ function SessionMatchCard({
   const teamBLabel = labelFor(match, "B");
   const isOpen = match.status === "open";
   return (
-    <li className="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3 text-sm">
-      <Badge variant={isOpen ? "outline" : "secondary"} className="font-mono">
-        {isOpen ? `#${(index ?? 0) + 1}` : "✓"}
-      </Badge>
-      <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="font-medium">{teamALabel}</span>
-        <span className="text-xs font-semibold text-muted-foreground">VS</span>
-        <span className="font-medium">{teamBLabel}</span>
-        {!compact && <Badge variant={eloGap < 80 ? "secondary" : "accent"}>Δ{eloGap}</Badge>}
-      </div>
-      {isOpen && (
-        <div className="flex items-center gap-1">
-          <Button variant="default" size="sm" onClick={onRecord} title="Saisir le score">
-            <PlayCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">Saisir le score</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onCancel}
-            title="Supprimer ce match (remboursement des mises)"
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+    <li className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={isOpen ? "outline" : "secondary"} className="font-mono">
+          {isOpen ? `#${(index ?? 0) + 1}` : "✓"}
+        </Badge>
+        <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-medium">{teamALabel}</span>
+          <span className="text-xs font-semibold text-muted-foreground">VS</span>
+          <span className="font-medium">{teamBLabel}</span>
+          {!compact && <Badge variant={eloGap < 80 ? "secondary" : "accent"}>Δ{eloGap}</Badge>}
         </div>
-      )}
+        {isOpen && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onRecord}
+              title="Saisir le score"
+              className="h-10"
+            >
+              <PlayCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Saisir le score</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCancel}
+              title="Supprimer ce match (remboursement des mises)"
+              className="h-10 w-10"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        )}
+      </div>
+      <MatchBettingInline match={match} />
     </li>
   );
 }

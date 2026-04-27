@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expectedScore, eloDelta, eloOdds } from "./elo";
+import { expectedScore, eloDelta, eloDeltaWeighted, eloOdds } from "./elo";
 
 describe("elo", () => {
   describe("expectedScore", () => {
@@ -42,6 +42,42 @@ describe("elo", () => {
       const upset = eloDelta(1000, 1400, 1);
       const equal = eloDelta(1000, 1000, 1);
       expect(upset).toBeGreaterThan(equal);
+    });
+  });
+
+  describe("eloDeltaWeighted", () => {
+    it("renvoie 0 pour un match nul (pas supporté)", () => {
+      expect(eloDeltaWeighted(1000, 1000, 3, 3)).toBe(0);
+    });
+
+    it("symétrique : delta A = -delta B", () => {
+      const a = eloDeltaWeighted(1000, 1000, 10, 3);
+      const b = eloDeltaWeighted(1000, 1000, 3, 10);
+      expect(a).toBe(-b);
+    });
+
+    it("plus grand écart de buts → delta plus grand", () => {
+      const d3to0 = eloDeltaWeighted(1000, 1000, 3, 0);
+      const d3to2 = eloDeltaWeighted(1000, 1000, 3, 2);
+      expect(Math.abs(d3to0)).toBeGreaterThan(Math.abs(d3to2));
+    });
+
+    it("favori qui gagne à marge modérée : gain inférieur à égalité ELO", () => {
+      const fav = eloDeltaWeighted(1400, 1000, 5, 3);
+      const equal = eloDeltaWeighted(1000, 1000, 5, 3);
+      expect(fav).toBeLessThan(equal);
+    });
+
+    it("outsider qui gagne : delta > gagnant égal", () => {
+      const upset = eloDeltaWeighted(1000, 1400, 5, 3);
+      const equal = eloDeltaWeighted(1000, 1000, 5, 3);
+      expect(upset).toBeGreaterThan(equal);
+    });
+
+    it("ne dépend que de la marge, pas des scores absolus", () => {
+      const a = eloDeltaWeighted(1000, 1000, 3, 0);
+      const b = eloDeltaWeighted(1000, 1000, 10, 7);
+      expect(a).toBe(b);
     });
   });
 

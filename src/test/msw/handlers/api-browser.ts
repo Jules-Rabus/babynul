@@ -74,6 +74,7 @@ function seed(): State {
       status: "active",
       started_at: DEMO_SESSION.started_at,
       ended_at: null,
+      target_score: 10,
     },
   ];
 
@@ -190,6 +191,32 @@ export function makeHandlers(): HttpHandler[] {
         state.wagers.filter((w) => w.proposed_match_id === mid),
       );
     }),
+
+    // GET /api/sessions?status=&date=today : liste des sessions avec match_count.
+    http.get("/api/sessions", ({ request }) => {
+      const url = new URL(request.url);
+      const status = url.searchParams.get("status");
+      const date = url.searchParams.get("date");
+      let list = state.play_sessions;
+      if (status) list = list.filter((s) => s.status === status);
+      if (date === "today") {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        list = list.filter((s) => new Date(s.started_at as string) >= start);
+      }
+      return HttpResponse.json(
+        list.map((s) => ({
+          ...s,
+          match_count: state.matches.filter((m) => m.session_id === s.id).length,
+        })),
+      );
+    }),
+
+    // GET /api/tournaments?status=&date=today : pas de tournoi en mode mock.
+    http.get("/api/tournaments", () => HttpResponse.json([])),
+    http.get("/api/tournaments/:id", () =>
+      HttpResponse.json({ error: "Not found" }, { status: 404 }),
+    ),
 
     // GET /api/voice/config
     http.get("/api/voice/config", () =>

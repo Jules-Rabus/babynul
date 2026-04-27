@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ScoreStepper } from "@/components/ui/score-stepper";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePlayers } from "@/lib/queries/players";
@@ -27,16 +27,17 @@ export function RecordMatchForm() {
   const [a2, setA2] = useState<string>("");
   const [b1, setB1] = useState<string>("");
   const [b2, setB2] = useState<string>("");
-  const [scoreA, setScoreA] = useState<string>("10");
-  const [scoreB, setScoreB] = useState<string>("0");
+  const [targetScore, setTargetScore] = useState<number>(10);
+  const [scoreA, setScoreA] = useState<number>(10);
+  const [scoreB, setScoreB] = useState<number>(0);
 
   const reset = () => {
     setA1("");
     setA2("");
     setB1("");
     setB2("");
-    setScoreA("10");
-    setScoreB("0");
+    setScoreA(targetScore);
+    setScoreB(0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,14 +47,18 @@ export function RecordMatchForm() {
       return;
     }
 
-    const sA = Number(scoreA);
-    const sB = Number(scoreB);
-    if (Number.isNaN(sA) || Number.isNaN(sB) || sA < 0 || sB < 0) {
+    const sA = scoreA;
+    const sB = scoreB;
+    if (sA < 0 || sB < 0) {
       toast.error("Scores invalides.");
       return;
     }
     if (sA === sB) {
       toast.error("Un vainqueur est requis (pas de match nul).");
+      return;
+    }
+    if (Math.max(sA, sB) !== targetScore) {
+      toast.error(`Le gagnant doit atteindre ${targetScore}.`);
       return;
     }
 
@@ -146,7 +151,30 @@ export function RecordMatchForm() {
             </Button>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-2 rounded-xl bg-muted/40 p-3">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Score cible
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {[3, 5, 7, 10].map((t) => (
+                <Button
+                  key={t}
+                  type="button"
+                  size="sm"
+                  variant={targetScore === t ? "default" : "outline"}
+                  onClick={() => {
+                    setTargetScore(t);
+                    setScoreA(t);
+                    setScoreB(0);
+                  }}
+                >
+                  {t} pts
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3 rounded-xl bg-muted/50 p-4">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">Équipe A</Label>
               <PlayerSelect value={a1} onChange={setA1}>
@@ -157,18 +185,13 @@ export function RecordMatchForm() {
                   {playerOptions}
                 </PlayerSelect>
               )}
-              <div>
-                <Label htmlFor="scoreA" className="text-xs">Score</Label>
-                <Input
-                  id="scoreA"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={scoreA}
-                  onChange={(e) => setScoreA(e.target.value)}
-                  className="mt-1 h-11 text-lg tabular-nums"
-                />
-              </div>
+              <ScoreStepper
+                id="scoreA"
+                label="Score A"
+                value={scoreA}
+                onChange={setScoreA}
+                max={targetScore}
+              />
             </div>
 
             <div className="space-y-3 rounded-xl bg-muted/50 p-4">
@@ -181,18 +204,13 @@ export function RecordMatchForm() {
                   {playerOptions}
                 </PlayerSelect>
               )}
-              <div>
-                <Label htmlFor="scoreB" className="text-xs">Score</Label>
-                <Input
-                  id="scoreB"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={scoreB}
-                  onChange={(e) => setScoreB(e.target.value)}
-                  className="mt-1 h-11 text-lg tabular-nums"
-                />
-              </div>
+              <ScoreStepper
+                id="scoreB"
+                label="Score B"
+                value={scoreB}
+                onChange={setScoreB}
+                max={targetScore}
+              />
             </div>
           </div>
 

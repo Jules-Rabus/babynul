@@ -30,16 +30,18 @@ Les policies RLS d'écriture publiques sont **droppées** (migration 0012). Mêm
 
 ## Fonctionnalités
 
-- **Classement** individuel et équipes (Elo, K=32), médailles 🥇🥈🥉 indépendantes du tri
-- **Saisie de matchs** 1v1 ou 2v2 (équipes créées automatiquement)
-- **Matchmaking équilibré** : priorité aux joueurs qui ont le moins joué dans le tournoi du jour courant (pas dans l'historique), appariement dynamique parmi les 3 combinaisons possibles avec anti-répétition des paires
-- **Tournois du jour persistés** (`play_sessions`) : liste vivante de présents, compteur par joueur, clôture propre
-- **Départ en cours de tournoi** : les matchs ouverts du joueur sont annulés, mises remboursées, possibilité de régénérer la suite
-- **Saisie directe depuis le matchmaking** : bouton « Saisir le score » sur chaque match, dialog pré-rempli
+- **Classement** individuel et équipes (Elo pondéré par la marge de buts, K=32), médailles 🥇🥈🥉 indépendantes du tri
+- **Saisie de matchs** 1v1 ou 2v2 avec **stepper ±** (équipes créées automatiquement)
+- **Score cible configurable** (3 / 5 / 7 / 10 points) par partie et par tournoi, validé côté serveur
+- **Matchmaking équilibré** : priorité aux joueurs qui ont le moins joué dans la partie du jour courant, appariement dynamique parmi les 3 combinaisons possibles avec anti-répétition des paires
+- **Parties du jour persistées** (`play_sessions`) : liste vivante de présents, compteur par joueur, clôture propre, score cible par partie
+- **Départ en cours de partie** : les matchs ouverts du joueur sont annulés, mises remboursées, possibilité de régénérer la suite
+- **Saisie directe depuis le matchmaking** : bouton « Saisir le score » sur chaque match, dialog pré-rempli avec stepper
 - **Suppression de match** : bouton 🗑️ sur chaque match ouvert (remboursement auto)
-- **Paris avec cotes Elo** : chaque joueur parie des points fictifs sur les matchs proposés
+- **Paris inline avec cotes Elo** : encart dépliable sur chaque match du matchmaking, cote + mise + gain potentiel
 - **Revanches & belles** : détection auto des face-à-face récents, ouverture de paris en un clic
-- **Tournoi à élimination directe** avec bracket aléatoire
+- **Tournoi à élimination directe persisté** (`tournaments` / `tournament_matches`) : bracket 1v1 **ou 2v2**, score cible configurable, rotation des paires (`buildBalancedPairs`), matchs joués un par un, ELO + paris intégrés, historique complet
+- **Historique du jour** dans le matchmaking : tournois + parties clôturés du jour, détail cliquable avec bracket figé
 - **Surnoms** éditables par joueur, utilisés dans les annonces vocales
 - **Voice mode IA** (après saisie de score) :
   - Phrase en style commentateur sportif générée par LLM (Gemini ou OpenAI)
@@ -75,6 +77,8 @@ Les policies RLS d'écriture publiques sont **droppées** (migration 0012). Mêm
    - `0010_play_sessions.sql` — tournois du jour persistés + RPC session
    - `0011_voice_prompts.sql` — table `voice_prompt_config` (prompt LLM éditable)
    - `0012_lockdown_rls.sql` — drop des policies d'écriture publiques (à appliquer **en dernier**, après avoir vérifié que Prisma tape bien)
+   - `0013_tournaments.sql` — `tournaments`, `tournament_participants`, `tournament_matches` + RPC `create_tournament`, `record_tournament_match`, `end_tournament`, `tournament_cascade_byes`
+   - `0014_elo_margin.sql` — `elo_delta_weighted` + `record_match_v3` (ELO pondéré par la marge de buts) ; `play_sessions.target_score` ; `start_play_session_v2`
 3. Récupérer la connection string Prisma : **Settings → Database → Connection string → Prisma** (ou via l'intégration Vercel ↔ Supabase qui la provisionne automatiquement).
 
 ## 2 — Variables d'environnement
