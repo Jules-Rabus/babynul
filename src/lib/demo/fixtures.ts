@@ -122,8 +122,9 @@ export const DEMO_MATCHES: DemoMatch[] = [...sessionMatches, ...historicalMatche
 
 export const DEMO_SESSION = {
   id: DEMO_SESSION_ID,
-  label: `Tournoi du ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}`,
+  label: `Partie du ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })}`,
   started_at: iso(0, 120),
   // Les 12 sont présents dans la session mock — p1 a 3 victoires, p12 a 3 défaites.
   participants: DEMO_PLAYERS,
+  target_score: 10,
 };

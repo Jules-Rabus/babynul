@@ -42,6 +42,14 @@ export function useRealtimeInvalidator() {
           qc.invalidateQueries({ queryKey: ["wagers", data.proposedMatchId] });
           qc.invalidateQueries({ queryKey: ["players"] });
           break;
+        case "tournament:created":
+        case "tournament:match-recorded":
+        case "tournament:ended":
+          qc.invalidateQueries({ queryKey: ["tournaments"] });
+          qc.invalidateQueries({ queryKey: ["players"] });
+          qc.invalidateQueries({ queryKey: ["teams"] });
+          qc.invalidateQueries({ queryKey: ["matches"] });
+          break;
       }
     };
 

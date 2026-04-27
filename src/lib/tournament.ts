@@ -1,20 +1,37 @@
-import type { PlayerRow } from "@/lib/supabase/types";
+import type { TournamentWithGraph } from "@/lib/db/types";
+import { displayName } from "@/lib/player-display";
 
-export type TournamentPlayer = Pick<PlayerRow, "id" | "first_name" | "nickname" | "elo">;
+export type TournamentParticipantView = {
+  slot: number;
+  label: string;
+  elo: number;
+  playerIds: string[];
+};
 
-export type TournamentMatch = {
+export type TournamentMatchView = {
   id: string;
   round: number;
   slot: number;
-  p1: TournamentPlayer | null;
-  p2: TournamentPlayer | null;
-  winner: TournamentPlayer | null;
+  status: "pending" | "ready" | "played" | "bye";
+  sideA: TournamentParticipantView | null;
+  sideB: TournamentParticipantView | null;
+  winner: TournamentParticipantView | null;
 };
 
-export type Tournament = {
+export type TournamentView = {
+  id: string;
+  label: string | null;
+  mode: "individual" | "team";
   size: number;
   rounds: number;
-  matches: TournamentMatch[];
+  targetScore: number;
+  status: "active" | "ended";
+  startedAt: string;
+  endedAt: string | null;
+  sessionId: string | null;
+  participants: Map<number, TournamentParticipantView>;
+  matchesByRound: Map<number, TournamentMatchView[]>;
+  champion: TournamentParticipantView | null;
 };
 
 const roundLabels: Record<number, string> = {
@@ -25,114 +42,78 @@ const roundLabels: Record<number, string> = {
   5: "Seizièmes",
 };
 
-// Taille du bracket = puissance de 2 >= nombre de joueurs
-function bracketSize(n: number): number {
-  let s = 1;
-  while (s < n) s *= 2;
-  return Math.max(2, s);
+export function roundLabel(round: number): string {
+  return roundLabels[round] ?? `Tour ${round}`;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-/**
- * Crée un bracket à élimination directe.
- * Si le nombre de joueurs n'est pas une puissance de 2, on complète avec des byes (null)
- * qui font passer automatiquement leur adversaire au tour suivant.
- */
-export function createTournament(players: TournamentPlayer[]): Tournament {
-  const size = bracketSize(players.length);
-  const rounds = Math.log2(size);
-  const seeded = shuffle(players);
-  // Padding avec des byes (null) pour atteindre la taille du bracket
-  while (seeded.length < size) seeded.push(null as unknown as TournamentPlayer);
-
-  const matches: TournamentMatch[] = [];
-  // Premier tour : appariement séquentiel après shuffle
-  const firstRoundMatches = size / 2;
-  for (let slot = 0; slot < firstRoundMatches; slot++) {
-    const p1 = seeded[slot * 2] ?? null;
-    const p2 = seeded[slot * 2 + 1] ?? null;
-    matches.push({
-      id: `r${rounds}-m${slot}`,
-      round: rounds,
-      slot,
-      p1,
-      p2,
-      // Auto-avance si un seul joueur est présent (bye)
-      winner: p1 && !p2 ? p1 : !p1 && p2 ? p2 : null,
-    });
-  }
-  // Tours suivants : placeholders
-  for (let r = rounds - 1; r >= 1; r--) {
-    const count = Math.pow(2, r - 1);
-    for (let slot = 0; slot < count; slot++) {
-      matches.push({
-        id: `r${r}-m${slot}`,
-        round: r,
-        slot,
-        p1: null,
-        p2: null,
-        winner: null,
+/** Transforme le payload API en une vue ergonomique pour le bracket UI. */
+export function toTournamentView(data: TournamentWithGraph): TournamentView {
+  const participants = new Map<number, TournamentParticipantView>();
+  for (const p of data.participants) {
+    if (data.tournament.mode === "individual") {
+      const pl = p.player;
+      const label = p.label ?? (pl ? displayName(pl) : "?");
+      participants.set(p.slot, {
+        slot: p.slot,
+        label,
+        elo: pl?.elo ?? 1000,
+        playerIds: pl ? [pl.id] : [],
+      });
+    } else {
+      const p1 = p.team_p1;
+      const p2 = p.team_p2;
+      const label =
+        p.label ??
+        `${p1 ? displayName(p1) : "?"} & ${p2 ? displayName(p2) : "?"}`;
+      const elo = Math.round(((p1?.elo ?? 1000) + (p2?.elo ?? 1000)) / 2);
+      participants.set(p.slot, {
+        slot: p.slot,
+        label,
+        elo,
+        playerIds: [p1?.id, p2?.id].filter((x): x is string => !!x),
       });
     }
   }
 
-  // Propager les auto-byes au tour suivant
-  const tournament: Tournament = { size, rounds, matches };
-  propagateWinners(tournament);
-  return tournament;
-}
-
-// Propage les vainqueurs connus (byes automatiques OU choix manuels) tour par tour.
-function propagateWinners(t: Tournament) {
-  for (let r = t.rounds; r >= 2; r--) {
-    const currentRound = t.matches.filter((m) => m.round === r);
-    for (const m of currentRound) {
-      if (!m.winner) continue;
-      const nextMatch = t.matches.find((x) => x.round === r - 1 && x.slot === Math.floor(m.slot / 2));
-      if (!nextMatch) continue;
-      if (m.slot % 2 === 0) nextMatch.p1 = m.winner;
-      else nextMatch.p2 = m.winner;
-    }
+  const matchesByRound = new Map<number, TournamentMatchView[]>();
+  for (const m of data.matches) {
+    const view: TournamentMatchView = {
+      id: m.id,
+      round: m.round,
+      slot: m.slot,
+      status: m.status,
+      sideA: m.side_a_slot != null ? participants.get(m.side_a_slot) ?? null : null,
+      sideB: m.side_b_slot != null ? participants.get(m.side_b_slot) ?? null : null,
+      winner: m.winner_slot != null ? participants.get(m.winner_slot) ?? null : null,
+    };
+    const list = matchesByRound.get(m.round) ?? [];
+    list.push(view);
+    matchesByRound.set(m.round, list);
   }
-}
-
-export function setWinner(t: Tournament, matchId: string, winnerId: string | null): Tournament {
-  const matches = t.matches.map((m) => ({ ...m }));
-  const match = matches.find((m) => m.id === matchId);
-  if (!match) return t;
-  const winner = winnerId === match.p1?.id ? match.p1 : winnerId === match.p2?.id ? match.p2 : null;
-  match.winner = winner;
-
-  // Invalider uniquement les matchs ultérieurs qui dépendaient de ce match-ci.
-  // (On nettoie le slot cible du match modifié et cascade depuis là.)
-  for (let r = match.round - 1; r >= 1; r--) {
-    const targetSlot = Math.floor(match.slot / Math.pow(2, match.round - r));
-    const affected = matches.find((x) => x.round === r && x.slot === targetSlot);
-    if (affected) {
-      affected.p1 = null;
-      affected.p2 = null;
-      affected.winner = null;
-    }
+  for (const list of matchesByRound.values()) {
+    list.sort((a, b) => a.slot - b.slot);
   }
 
-  const nextTournament: Tournament = { ...t, matches };
-  // Reconstruit p1/p2/winner des tours suivants depuis les vainqueurs toujours valides
-  propagateWinners(nextTournament);
-  return nextTournament;
-}
+  const champion =
+    data.tournament.status === "ended" && data.tournament.champion_player_id
+      ? [...participants.values()].find((p) =>
+          p.playerIds.includes(data.tournament.champion_player_id as string),
+        ) ?? null
+      : null;
 
-export function getChampion(t: Tournament): TournamentPlayer | null {
-  return t.matches.find((m) => m.round === 1)?.winner ?? null;
-}
-
-export function roundLabel(round: number): string {
-  return roundLabels[round] ?? `Tour ${round}`;
+  return {
+    id: data.tournament.id,
+    label: data.tournament.label,
+    mode: data.tournament.mode,
+    size: data.tournament.size,
+    rounds: data.tournament.rounds,
+    targetScore: data.tournament.target_score,
+    status: data.tournament.status,
+    startedAt: data.tournament.started_at,
+    endedAt: data.tournament.ended_at,
+    sessionId: data.tournament.session_id,
+    participants,
+    matchesByRound,
+    champion,
+  };
 }

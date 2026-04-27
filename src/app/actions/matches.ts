@@ -10,8 +10,8 @@ export async function recordMatch(raw: unknown): Promise<string> {
   const input = RecordMatchSchema.parse(raw);
 
   const matchId = await prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<{ record_match_v2: string }[]>`
-      select public.record_match_v2(
+    const rows = await tx.$queryRaw<{ record_match_v3: string }[]>`
+      select public.record_match_v3(
         ${input.mode}::text,
         ${input.a1}::uuid,
         ${input.a2 ?? null}::uuid,
@@ -22,8 +22,8 @@ export async function recordMatch(raw: unknown): Promise<string> {
         ${input.sessionId ?? null}::uuid
       )
     `;
-    const id = rows[0]?.record_match_v2;
-    if (!id) throw new Error("record_match_v2 a retourné un id vide.");
+    const id = rows[0]?.record_match_v3;
+    if (!id) throw new Error("record_match_v3 a retourné un id vide.");
 
     if (input.proposedMatchId) {
       const winnerSide = input.scoreA > input.scoreB ? "A" : "B";

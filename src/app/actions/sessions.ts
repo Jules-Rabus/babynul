@@ -13,10 +13,11 @@ import { publishEvent } from "@/lib/realtime/bus";
 export async function startSession(raw: unknown): Promise<string> {
   await assertAdmin();
   const input = StartSessionSchema.parse(raw ?? {});
-  const rows = await prisma.$queryRaw<{ start_play_session: string }[]>`
-    select public.start_play_session(${input.label ?? null}::text)
+  const target = input.targetScore ?? 10;
+  const rows = await prisma.$queryRaw<{ start_play_session_v2: string }[]>`
+    select public.start_play_session_v2(${input.label ?? null}::text, ${target}::int)
   `;
-  const id = rows[0]?.start_play_session;
+  const id = rows[0]?.start_play_session_v2;
   if (!id) throw new Error("Impossible de démarrer le tournoi.");
   publishEvent({ type: "session:started", sessionId: id });
   return id;

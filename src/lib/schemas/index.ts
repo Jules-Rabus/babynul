@@ -10,6 +10,7 @@ export const SideSchema = z.enum(["A", "B"]);
 export const StatusSchema = z.enum(["open", "resolved", "cancelled"]);
 export const SessionStatusSchema = z.enum(["active", "ended"]);
 export const ScoreSchema = z.number().int().nonnegative().max(30);
+export const TargetScoreSchema = z.number().int().min(1).max(30);
 export const EloSchema = z.number().int().min(200).max(3000);
 export const NicknameSchema = z
   .string()
@@ -57,11 +58,21 @@ export const RecordMatchSchema = z
     scoreB: ScoreSchema,
     sessionId: UuidSchema.nullable().optional(),
     proposedMatchId: UuidSchema.nullable().optional(),
+    targetScore: TargetScoreSchema.optional(),
   })
   .refine((v) => v.scoreA !== v.scoreB, {
     message: "Un vainqueur est requis (pas de match nul).",
     path: ["scoreA"],
   })
+  .refine(
+    (v) =>
+      v.targetScore === undefined ||
+      Math.max(v.scoreA, v.scoreB) === v.targetScore,
+    {
+      message: "Le vainqueur doit atteindre exactement le score cible.",
+      path: ["scoreA"],
+    },
+  )
   .refine(
     (v) =>
       v.mode === "individual" ||
@@ -104,6 +115,7 @@ export const SessionMatchesQuerySchema = z.object({
 
 export const StartSessionSchema = z.object({
   label: z.string().trim().min(1).max(120).nullable().optional(),
+  targetScore: TargetScoreSchema.optional(),
 });
 export type StartSessionInput = z.infer<typeof StartSessionSchema>;
 
@@ -157,6 +169,74 @@ export type ResolveProposedMatchInput = z.infer<typeof ResolveProposedMatchSchem
 
 export const ProposedMatchesQuerySchema = z.object({
   sessionId: UuidSchema.optional(),
+});
+
+// ============================================================================
+// Tournaments
+// ============================================================================
+
+export const TournamentSlotIndividualSchema = z.object({
+  player_id: UuidSchema,
+  label: z.string().trim().max(60).optional(),
+});
+
+export const TournamentSlotTeamSchema = z.object({
+  p1: UuidSchema,
+  p2: UuidSchema,
+  label: z.string().trim().max(60).optional(),
+});
+
+export const CreateTournamentSchema = z
+  .object({
+    mode: ModeSchema,
+    label: z.string().trim().min(1).max(120).nullable().optional(),
+    targetScore: TargetScoreSchema.default(10),
+    sessionId: UuidSchema.nullable().optional(),
+    slots: z.array(z.union([TournamentSlotIndividualSchema, TournamentSlotTeamSchema])).min(2),
+  })
+  .refine(
+    (v) =>
+      v.slots.every((s) =>
+        v.mode === "individual" ? "player_id" in s : "p1" in s && "p2" in s,
+      ),
+    {
+      message: "Chaque slot doit correspondre au mode du tournoi.",
+      path: ["slots"],
+    },
+  )
+  .refine(
+    (v) => {
+      const ids: string[] = [];
+      for (const s of v.slots) {
+        if ("player_id" in s) ids.push(s.player_id);
+        else {
+          ids.push(s.p1, s.p2);
+        }
+      }
+      return new Set(ids).size === ids.length;
+    },
+    { message: "Les joueurs doivent être distincts.", path: ["slots"] },
+  );
+export type CreateTournamentInput = z.infer<typeof CreateTournamentSchema>;
+
+export const RecordTournamentMatchSchema = z.object({
+  tournamentMatchId: UuidSchema,
+  scoreA: ScoreSchema,
+  scoreB: ScoreSchema,
+}).refine((v) => v.scoreA !== v.scoreB, {
+  message: "Un vainqueur est requis.",
+  path: ["scoreA"],
+});
+export type RecordTournamentMatchInput = z.infer<typeof RecordTournamentMatchSchema>;
+
+export const EndTournamentSchema = z.object({
+  tournamentId: UuidSchema,
+});
+export type EndTournamentInput = z.infer<typeof EndTournamentSchema>;
+
+export const TournamentsQuerySchema = z.object({
+  status: z.enum(["active", "ended"]).optional(),
+  date: z.enum(["today"]).optional(),
 });
 
 // ============================================================================

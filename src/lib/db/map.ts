@@ -79,6 +79,7 @@ export function toPlaySessionRow(s: PlaySession): PlaySessionRow {
     status: s.status as "active" | "ended",
     started_at: iso(s.startedAt),
     ended_at: s.endedAt ? iso(s.endedAt) : null,
+    target_score: s.targetScore ?? 10,
   };
 }
 

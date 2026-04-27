@@ -11,8 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ScoreStepper } from "@/components/ui/score-stepper";
 import { useRecordMatch } from "@/lib/queries/matches";
 import { useSessionProposedMatches, type ProposedMatchWithPlayers } from "@/lib/queries/wagers";
 import { useAnnounceNextMatch, useVoiceEnabled } from "@/lib/voice/use-announce-next-match";
@@ -23,6 +22,7 @@ import { toast } from "sonner";
 type Props = {
   match: ProposedMatchWithPlayers | null;
   sessionId: string | null;
+  targetScore?: number;
   onClose: () => void;
 };
 
@@ -37,9 +37,10 @@ function labelFor(match: ProposedMatchWithPlayers, side: "A" | "B"): string {
   return `${fmt(match.team_b_p1_player)} & ${fmt(match.team_b_p2_player)}`;
 }
 
-export function RecordSessionMatchDialog({ match, sessionId, onClose }: Props) {
-  const [scoreA, setScoreA] = useState("10");
-  const [scoreB, setScoreB] = useState("0");
+export function RecordSessionMatchDialog({ match, sessionId, targetScore, onClose }: Props) {
+  const targetMax = targetScore ?? 10;
+  const [scoreA, setScoreA] = useState<number>(targetMax);
+  const [scoreB, setScoreB] = useState<number>(0);
   const [phase, setPhase] = useState<"input" | "after">("input");
   const record = useRecordMatch();
   const { announce, loading: announceLoading } = useAnnounceNextMatch();
@@ -47,10 +48,10 @@ export function RecordSessionMatchDialog({ match, sessionId, onClose }: Props) {
   const { data: sessionProposed = [] } = useSessionProposedMatches(sessionId);
 
   useEffect(() => {
-    setScoreA("10");
-    setScoreB("0");
+    setScoreA(targetMax);
+    setScoreB(0);
     setPhase("input");
-  }, [match?.id]);
+  }, [match?.id, targetMax]);
 
   // Cherche le prochain match ouvert différent de celui qu'on vient de saisir.
   const nextMatch = match
@@ -61,14 +62,18 @@ export function RecordSessionMatchDialog({ match, sessionId, onClose }: Props) {
     e.preventDefault();
     if (!match) return;
 
-    const sA = Number(scoreA);
-    const sB = Number(scoreB);
-    if (Number.isNaN(sA) || Number.isNaN(sB) || sA < 0 || sB < 0) {
+    const sA = scoreA;
+    const sB = scoreB;
+    if (sA < 0 || sB < 0) {
       toast.error("Scores invalides.");
       return;
     }
     if (sA === sB) {
       toast.error("Un vainqueur est requis.");
+      return;
+    }
+    if (Math.max(sA, sB) !== targetMax) {
+      toast.error(`Le gagnant doit atteindre ${targetMax}.`);
       return;
     }
 
@@ -137,30 +142,21 @@ export function RecordSessionMatchDialog({ match, sessionId, onClose }: Props) {
 
         {phase === "input" && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="session-score-a">Équipe A — {teamALabel}</Label>
-                <Input
-                  id="session-score-a"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={scoreA}
-                  onChange={(e) => setScoreA(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="session-score-b">Équipe B — {teamBLabel}</Label>
-                <Input
-                  id="session-score-b"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={scoreB}
-                  onChange={(e) => setScoreB(e.target.value)}
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ScoreStepper
+                id="session-score-a"
+                label={`A · ${teamALabel}`}
+                value={scoreA}
+                onChange={setScoreA}
+                max={targetMax}
+              />
+              <ScoreStepper
+                id="session-score-b"
+                label={`B · ${teamBLabel}`}
+                value={scoreB}
+                onChange={setScoreB}
+                max={targetMax}
+              />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>

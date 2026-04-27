@@ -53,6 +53,7 @@ export type PlaySessionRow = {
   status: "active" | "ended";
   started_at: string;
   ended_at: string | null;
+  target_score: number;
 };
 
 export type SessionPlayerRow = {
@@ -61,6 +62,53 @@ export type SessionPlayerRow = {
   is_present: boolean;
   joined_at: string;
   left_at: string | null;
+};
+
+export type TournamentRow = {
+  id: string;
+  label: string | null;
+  mode: "individual" | "team";
+  size: number;
+  rounds: number;
+  target_score: number;
+  status: "active" | "ended";
+  started_at: string;
+  ended_at: string | null;
+  champion_player_id: string | null;
+  champion_team_id: string | null;
+  session_id: string | null;
+};
+
+export type TournamentParticipantRow = {
+  tournament_id: string;
+  slot: number;
+  seed: number;
+  player_id: string | null;
+  team_p1_id: string | null;
+  team_p2_id: string | null;
+  label: string | null;
+};
+
+export type TournamentMatchRow = {
+  id: string;
+  tournament_id: string;
+  round: number;
+  slot: number;
+  side_a_slot: number | null;
+  side_b_slot: number | null;
+  winner_slot: number | null;
+  match_id: string | null;
+  status: "pending" | "ready" | "played" | "bye";
+};
+
+export type TournamentWithGraph = {
+  tournament: TournamentRow;
+  participants: (TournamentParticipantRow & {
+    player: Pick<PlayerRow, "id" | "first_name" | "nickname" | "elo"> | null;
+    team_p1: Pick<PlayerRow, "id" | "first_name" | "nickname" | "elo"> | null;
+    team_p2: Pick<PlayerRow, "id" | "first_name" | "nickname" | "elo"> | null;
+  })[];
+  matches: TournamentMatchRow[];
 };
 
 export type VoicePromptConfigRow = {

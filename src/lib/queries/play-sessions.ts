@@ -35,11 +35,25 @@ export function useActiveSession() {
   });
 }
 
+export type SessionListItem = PlaySessionRow & { match_count: number };
+
+export function useSessions(params: { status?: "active" | "ended"; date?: "today" } = {}) {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.date) qs.set("date", params.date);
+  const url = `/api/sessions${qs.toString() ? `?${qs}` : ""}`;
+  return useQuery({
+    queryKey: ["play-sessions", params],
+    queryFn: () => apiGet<SessionListItem[]>(url),
+  });
+}
+
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { label?: string | null } = {}) =>
-      startSession(input),
+    mutationFn: async (
+      input: { label?: string | null; targetScore?: number } = {},
+    ) => startSession(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["play-sessions"] });
     },
