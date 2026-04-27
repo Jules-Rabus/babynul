@@ -420,13 +420,14 @@ function ScoreDialog({
   const [scoreA, setScoreA] = useState(targetScore);
   const [scoreB, setScoreB] = useState(0);
 
+  const matchId = match?.id;
   // Reset à l'ouverture.
   useEffect(() => {
-    if (match) {
+    if (matchId) {
       setScoreA(targetScore);
       setScoreB(0);
     }
-  }, [match?.id, targetScore]);
+  }, [matchId, targetScore]);
 
   if (!match) return null;
 
