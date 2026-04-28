@@ -6,6 +6,7 @@ import {
   EndSessionSchema,
   SessionPresenceSchema,
   CancelOpenSessionMatchesSchema,
+  SetSessionTargetScoreSchema,
 } from "@/lib/schemas";
 import { assertAdmin } from "@/lib/admin-guard";
 import { publishEvent } from "@/lib/realtime/bus";
@@ -56,6 +57,18 @@ export async function setSessionPresence(raw: unknown): Promise<void> {
   if (!input.present) {
     publishEvent({ type: "proposed-match:cancelled", sessionId: input.sessionId });
   }
+}
+
+export async function setSessionTargetScore(raw: unknown): Promise<void> {
+  await assertAdmin();
+  const input = SetSessionTargetScoreSchema.parse(raw);
+  await prisma.$executeRaw`
+    select public.set_play_session_target_score(
+      ${input.sessionId}::uuid,
+      ${input.targetScore}::int
+    )
+  `;
+  publishEvent({ type: "session:presence-changed", sessionId: input.sessionId });
 }
 
 export async function cancelOpenSessionMatches(raw: unknown): Promise<number> {

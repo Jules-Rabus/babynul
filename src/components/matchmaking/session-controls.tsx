@@ -13,7 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useActiveSession, useEndSession, useStartSession } from "@/lib/queries/play-sessions";
+import {
+  useActiveSession,
+  useEndSession,
+  useSetSessionTargetScore,
+  useStartSession,
+} from "@/lib/queries/play-sessions";
 import { useAdmin } from "@/components/admin-context";
 import { toast } from "sonner";
 
@@ -22,8 +27,23 @@ export function SessionControls() {
   const { data: active, isLoading } = useActiveSession();
   const startSession = useStartSession();
   const endSession = useEndSession();
+  const setSessionTarget = useSetSessionTargetScore();
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [targetScore, setTargetScore] = useState<number>(10);
+
+  const handleChangeTarget = async (next: number) => {
+    if (!active) return;
+    if (next === active.session.target_score) return;
+    try {
+      await setSessionTarget.mutateAsync({
+        sessionId: active.session.id,
+        targetScore: next,
+      });
+      toast.success(`Score cible mis à ${next} pts.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur.");
+    }
+  };
 
   const handleStart = async () => {
     try {
@@ -120,20 +140,48 @@ export function SessionControls() {
 
   return (
     <Card>
-      <CardContent className="flex flex-col items-start gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold">{active.session.label ?? "Partie en cours"}</p>
-          <p className="text-xs text-muted-foreground">
-            Démarrée à {started} · {active.participants.filter((p) => p.is_present).length} présent
-            {active.participants.filter((p) => p.is_present).length > 1 ? "s" : ""} · premier à{" "}
-            <strong className="tabular-nums">{active.session.target_score}</strong> pts
-          </p>
+      <CardContent className="flex flex-col gap-3 py-4">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold">{active.session.label ?? "Partie en cours"}</p>
+            <p className="text-xs text-muted-foreground">
+              Démarrée à {started} · {active.participants.filter((p) => p.is_present).length} présent
+              {active.participants.filter((p) => p.is_present).length > 1 ? "s" : ""} · premier à{" "}
+              <strong className="tabular-nums">{active.session.target_score}</strong> pts
+            </p>
+          </div>
+          {unlocked && (
+            <Button variant="outline" onClick={() => setConfirmEnd(true)}>
+              <Square className="h-4 w-4" />
+              Clôturer
+            </Button>
+          )}
         </div>
         {unlocked && (
-          <Button variant="outline" onClick={() => setConfirmEnd(true)}>
-            <Square className="h-4 w-4" />
-            Clôturer
-          </Button>
+          <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-2">
+            <Target className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Score cible
+            </span>
+            <div className="ml-auto flex gap-1">
+              {[3, 5, 7, 10].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => handleChangeTarget(t)}
+                  disabled={setSessionTarget.isPending}
+                  className={cn(
+                    "min-h-[36px] min-w-[44px] rounded-md px-2 text-sm font-medium transition-colors disabled:opacity-50",
+                    active.session.target_score === t
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-foreground ring-1 ring-border hover:bg-muted",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </CardContent>
       <Dialog open={confirmEnd} onOpenChange={setConfirmEnd}>

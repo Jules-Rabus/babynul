@@ -8,6 +8,7 @@ import {
   endSession,
   setSessionPresence,
   cancelOpenSessionMatches,
+  setSessionTargetScore,
 } from "@/app/actions/sessions";
 
 export const ACTIVE_SESSION_KEY = ["play-sessions", "active"] as const;
@@ -84,6 +85,17 @@ export function useSessionPresence() {
       qc.invalidateQueries({ queryKey: ["play-sessions"] });
       qc.invalidateQueries({ queryKey: ["proposed-matches"] });
       qc.invalidateQueries({ queryKey: ["players"] });
+    },
+  });
+}
+
+export function useSetSessionTargetScore() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { sessionId: string; targetScore: number }) =>
+      setSessionTargetScore(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["play-sessions"] });
     },
   });
 }

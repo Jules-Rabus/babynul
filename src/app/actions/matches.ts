@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { RecordMatchSchema } from "@/lib/schemas";
+import { RecordMatchSchema, EditMatchScoreSchema } from "@/lib/schemas";
 import { assertAdmin } from "@/lib/admin-guard";
 import { publishEvent } from "@/lib/realtime/bus";
 
@@ -40,6 +40,29 @@ export async function recordMatch(raw: unknown): Promise<string> {
 
   publishEvent({ type: "match:recorded", sessionId: input.sessionId ?? null });
   return matchId;
+}
+
+export async function editMatchScore(raw: unknown): Promise<string> {
+  await assertAdmin();
+  const input = EditMatchScoreSchema.parse(raw);
+
+  const sessionRows = await prisma.$queryRaw<{ session_id: string | null }[]>`
+    select session_id from public.matches where id = ${input.matchId}::uuid
+  `;
+  const sessionId = sessionRows[0]?.session_id ?? null;
+
+  const rows = await prisma.$queryRaw<{ edit_match_score: string }[]>`
+    select public.edit_match_score(
+      ${input.matchId}::uuid,
+      ${input.scoreA}::int,
+      ${input.scoreB}::int
+    )
+  `;
+  const id = rows[0]?.edit_match_score;
+  if (!id) throw new Error("edit_match_score a retourné un id vide.");
+
+  publishEvent({ type: "match:recorded", sessionId });
+  return id;
 }
 
 export async function undoLastMatch(): Promise<string> {
