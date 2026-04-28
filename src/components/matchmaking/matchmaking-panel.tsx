@@ -38,6 +38,7 @@ import { SessionControls } from "./session-controls";
 import { RecordSessionMatchDialog } from "./record-session-match-dialog";
 import { EditMatchDialog } from "./edit-match-dialog";
 import { DailyHistory } from "./daily-history";
+import { DailyEloRanking } from "./daily-elo-ranking";
 import { MatchBettingInline } from "@/components/wagers/match-betting-inline";
 import { toast } from "sonner";
 
@@ -489,6 +490,8 @@ export function MatchmakingPanel() {
           </CardContent>
         </Card>
       )}
+
+      <DailyEloRanking />
 
       <DailyHistory />
 
