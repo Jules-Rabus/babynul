@@ -105,6 +105,18 @@ export const RecentMatchesQuerySchema = z.object({
   days: z.coerce.number().int().positive().max(365).default(30),
 });
 
+export const EditMatchScoreSchema = z
+  .object({
+    matchId: UuidSchema,
+    scoreA: ScoreSchema,
+    scoreB: ScoreSchema,
+  })
+  .refine((v) => v.scoreA !== v.scoreB, {
+    message: "Un vainqueur est requis (pas de match nul).",
+    path: ["scoreA"],
+  });
+export type EditMatchScoreInput = z.infer<typeof EditMatchScoreSchema>;
+
 export const SessionMatchesQuerySchema = z.object({
   sessionId: UuidSchema,
 });
@@ -137,6 +149,14 @@ export const CancelOpenSessionMatchesSchema = z.object({
 });
 export type CancelOpenSessionMatchesInput = z.infer<
   typeof CancelOpenSessionMatchesSchema
+>;
+
+export const SetSessionTargetScoreSchema = z.object({
+  sessionId: UuidSchema,
+  targetScore: TargetScoreSchema,
+});
+export type SetSessionTargetScoreInput = z.infer<
+  typeof SetSessionTargetScoreSchema
 >;
 
 // ============================================================================

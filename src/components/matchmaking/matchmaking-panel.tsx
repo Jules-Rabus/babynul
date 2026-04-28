@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePlayers } from "@/lib/queries/players";
 import { generateMatches } from "@/lib/matchmaking";
-import { Shuffle, Users, Coins, Swords, Trash2, PlayCircle, Volume2, VolumeX, Trophy } from "lucide-react";
+import { Shuffle, Users, Coins, Swords, Trash2, PlayCircle, Pencil, Volume2, VolumeX, Trophy } from "lucide-react";
 import { useAdmin } from "@/components/admin-context";
 import {
   useCreateProposedMatch,
@@ -36,6 +36,7 @@ import { usePlayerForms } from "@/hooks/use-player-forms";
 import { useVoiceEnabled } from "@/lib/voice/use-announce-next-match";
 import { SessionControls } from "./session-controls";
 import { RecordSessionMatchDialog } from "./record-session-match-dialog";
+import { EditMatchDialog } from "./edit-match-dialog";
 import { DailyHistory } from "./daily-history";
 import { MatchBettingInline } from "@/components/wagers/match-betting-inline";
 import { toast } from "sonner";
@@ -59,6 +60,15 @@ export function MatchmakingPanel() {
   const [search, setSearch] = useState("");
   const [toLeave, setToLeave] = useState<string | null>(null);
   const [toRecord, setToRecord] = useState<ProposedMatchWithPlayers | null>(null);
+  const [toEdit, setToEdit] = useState<ProposedMatchWithPlayers | null>(null);
+
+  const sessionMatchById = useMemo(() => {
+    const map = new Map<string, (typeof sessionMatches)[number]>();
+    for (const m of sessionMatches) map.set(m.id, m);
+    return map;
+  }, [sessionMatches]);
+
+  const editMatchRow = toEdit?.match_id ? sessionMatchById.get(toEdit.match_id) : null;
 
   const voice = useVoiceEnabled();
 
@@ -408,15 +418,25 @@ export function MatchmakingPanel() {
                       Matchs joués ({playedSessionMatches.length})
                     </h3>
                     <ol className="space-y-1">
-                      {playedSessionMatches.map((m) => (
-                        <SessionMatchCard
-                          key={m.id}
-                          match={m}
-                          compact
-                          onCancel={() => {}}
-                          onRecord={() => {}}
-                        />
-                      ))}
+                      {playedSessionMatches.map((m) => {
+                        const played = m.match_id ? sessionMatchById.get(m.match_id) : null;
+                        return (
+                          <SessionMatchCard
+                            key={m.id}
+                            match={m}
+                            compact
+                            scoreA={played?.score_a}
+                            scoreB={played?.score_b}
+                            onCancel={() => {}}
+                            onRecord={() => {}}
+                            onEdit={
+                              unlocked && m.match_id
+                                ? () => setToEdit(m)
+                                : undefined
+                            }
+                          />
+                        );
+                      })}
                     </ol>
                   </section>
                 )}
@@ -479,6 +499,16 @@ export function MatchmakingPanel() {
         onClose={() => setToRecord(null)}
       />
 
+      <EditMatchDialog
+        open={!!toEdit && !!editMatchRow}
+        matchId={toEdit?.match_id ?? null}
+        teamALabel={toEdit ? labelFor(toEdit, "A") : ""}
+        teamBLabel={toEdit ? labelFor(toEdit, "B") : ""}
+        initialScoreA={editMatchRow?.score_a ?? 0}
+        initialScoreB={editMatchRow?.score_b ?? 0}
+        onClose={() => setToEdit(null)}
+      />
+
       <Dialog open={!!toLeave} onOpenChange={(o) => !o && setToLeave(null)}>
         <DialogContent>
           <DialogHeader>
@@ -505,19 +535,26 @@ function SessionMatchCard({
   match,
   index,
   compact,
+  scoreA,
+  scoreB,
   onCancel,
   onRecord,
+  onEdit,
 }: {
   match: ProposedMatchWithPlayers;
   index?: number;
   compact?: boolean;
+  scoreA?: number;
+  scoreB?: number;
   onCancel: () => void;
   onRecord: () => void;
+  onEdit?: () => void;
 }) {
   const eloGap = Math.abs(match.elo_a - match.elo_b);
   const teamALabel = labelFor(match, "A");
   const teamBLabel = labelFor(match, "B");
   const isOpen = match.status === "open";
+  const hasScore = typeof scoreA === "number" && typeof scoreB === "number";
   return (
     <li className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -526,7 +563,13 @@ function SessionMatchCard({
         </Badge>
         <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-medium">{teamALabel}</span>
-          <span className="text-xs font-semibold text-muted-foreground">VS</span>
+          {hasScore ? (
+            <span className="font-mono text-xs font-semibold tabular-nums text-muted-foreground">
+              {scoreA}–{scoreB}
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-muted-foreground">VS</span>
+          )}
           <span className="font-medium">{teamBLabel}</span>
           {!compact && <Badge variant={eloGap < 80 ? "secondary" : "accent"}>Δ{eloGap}</Badge>}
         </div>
@@ -552,6 +595,17 @@ function SessionMatchCard({
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </div>
+        )}
+        {!isOpen && onEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onEdit}
+            title="Corriger le score (recalcul Elo)"
+            className="h-9 w-9"
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
         )}
       </div>
       <MatchBettingInline match={match} />
