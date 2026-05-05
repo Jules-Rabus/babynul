@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Github, ScrollText, Sparkles } from "lucide-react";
+import { Brain, Github, ScrollText, Sparkles } from "lucide-react";
 
 export function Footer() {
   return (
@@ -19,6 +19,13 @@ export function Footer() {
           >
             <ScrollText className="h-4 w-4" />
             Règlement
+          </Link>
+          <Link
+            href="/algo"
+            className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground"
+          >
+            <Brain className="h-4 w-4" />
+            Algo
           </Link>
           <a
             href="https://github.com/Jules-Rabus/babynul"

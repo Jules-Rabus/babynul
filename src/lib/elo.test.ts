@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { expectedScore, eloDelta, eloDeltaWeighted, eloOdds } from "./elo";
+import {
+  expectedScore,
+  eloDelta,
+  eloDeltaWeighted,
+  eloOdds,
+  distributeTeamDelta,
+} from "./elo";
 
 describe("elo", () => {
   describe("expectedScore", () => {
@@ -78,6 +84,60 @@ describe("elo", () => {
       const a = eloDeltaWeighted(1000, 1000, 3, 0);
       const b = eloDeltaWeighted(1000, 1000, 10, 7);
       expect(a).toBe(b);
+    });
+
+    it("match serré (margin=1) : delta réduit vs marge=2 à Elo égal", () => {
+      const close = Math.abs(eloDeltaWeighted(1000, 1000, 3, 2));
+      const med = Math.abs(eloDeltaWeighted(1000, 1000, 3, 1));
+      // Le close-match factor 0.7 doit faire chuter le ratio sous le simple ln(2)/ln(3)
+      expect(close / med).toBeLessThan(Math.log(2) / Math.log(3));
+    });
+
+    it("match serré reste symétrique (gagnant +X, perdant -X)", () => {
+      const a = eloDeltaWeighted(1000, 1000, 3, 2);
+      const b = eloDeltaWeighted(1000, 1000, 2, 3);
+      expect(a).toBe(-b);
+    });
+  });
+
+  describe("distributeTeamDelta", () => {
+    it("0 si deltaTeam = 0", () => {
+      expect(distributeTeamDelta(0, 1400, 900)).toEqual([0, 0]);
+    });
+
+    it("Elo identiques : split égal et conservation", () => {
+      const [d1, d2] = distributeTeamDelta(-16, 1100, 1100);
+      expect(d1).toBe(-16);
+      expect(d2).toBe(-16);
+    });
+
+    it("perte : le top encaisse moins, le faible plus, somme = 2×delta", () => {
+      const deltaTeam = -16;
+      const [dTop, dLow] = distributeTeamDelta(deltaTeam, 1400, 900);
+      expect(Math.abs(dTop)).toBeLessThan(Math.abs(deltaTeam));
+      expect(Math.abs(dLow)).toBeGreaterThan(Math.abs(deltaTeam));
+      expect(dTop + dLow).toBe(2 * deltaTeam);
+    });
+
+    it("victoire : le top gagne plus, le faible moins, somme = 2×delta", () => {
+      const deltaTeam = 16;
+      const [dTop, dLow] = distributeTeamDelta(deltaTeam, 1400, 900);
+      expect(dTop).toBeGreaterThan(deltaTeam);
+      expect(dLow).toBeLessThan(deltaTeam);
+      expect(dTop + dLow).toBe(2 * deltaTeam);
+    });
+
+    it("ordre des arguments : commute symétriquement", () => {
+      const [a1, a2] = distributeTeamDelta(-16, 1400, 900);
+      const [b1, b2] = distributeTeamDelta(-16, 900, 1400);
+      expect(a1).toBe(b2);
+      expect(a2).toBe(b1);
+    });
+
+    it("conservation préservée même avec écart énorme (clamp du spread)", () => {
+      const deltaTeam = -20;
+      const [d1, d2] = distributeTeamDelta(deltaTeam, 1800, 600);
+      expect(d1 + d2).toBe(2 * deltaTeam);
     });
   });
 
