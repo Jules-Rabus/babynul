@@ -1,13 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useTeams, type TeamWithPlayers } from "@/lib/queries/teams";
+import { useRecentMatches } from "@/lib/queries/matches";
+import { aggregateTeamsForDay, listMatchDays } from "@/lib/daily-elo";
 import { SortHeader, type SortDir } from "./sort-header";
 import { Medal } from "./medal";
 import { displayName } from "@/lib/player-display";
+import { cn } from "@/lib/utils";
 type SortCol = "rank" | "name" | "games" | "elo";
+
+const TREND_WINDOW_DAYS = 30;
 
 function teamLabel(t: TeamWithPlayers) {
   const a = t.player1 ? displayName(t.player1) : "?";
@@ -17,6 +23,7 @@ function teamLabel(t: TeamWithPlayers) {
 
 export function TeamsRanking() {
   const { data: teams = [], isLoading } = useTeams();
+  const { data: recentMatches = [] } = useRecentMatches(TREND_WINDOW_DAYS);
   const [sortBy, setSortBy] = useState<SortCol>("elo");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -26,6 +33,16 @@ export function TeamsRanking() {
     sorted.forEach((t, i) => map.set(t.id, i + 1));
     return map;
   }, [teams]);
+
+  const lastDayDelta = useMemo(() => {
+    const teamMatches = recentMatches.filter((m) => m.mode === "team");
+    const days = listMatchDays(teamMatches);
+    if (days.length === 0) return new Map<string, number>();
+    const stats = aggregateTeamsForDay(teamMatches, days[0]);
+    const map = new Map<string, number>();
+    stats.forEach((s, id) => map.set(id, s.eloDelta));
+    return map;
+  }, [recentMatches]);
 
   const displayed = useMemo(() => {
     const sign = sortDir === "asc" ? 1 : -1;
@@ -86,6 +103,7 @@ export function TeamsRanking() {
                 <TableHead className="w-24 text-right">
                   <SortHeader label="Elo" column="elo" sortBy={sortBy} sortDir={sortDir} onSort={handleSort} align="right" />
                 </TableHead>
+                <TableHead className="w-24 text-right">Tendance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -99,6 +117,9 @@ export function TeamsRanking() {
                     {t.games_played}
                   </TableCell>
                   <TableCell className="text-right tabular-nums font-semibold">{t.elo}</TableCell>
+                  <TableCell className="text-right">
+                    <TrendCell delta={lastDayDelta.get(t.id)} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -106,5 +127,38 @@ export function TeamsRanking() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function TrendCell({ delta }: { delta: number | undefined }) {
+  if (delta === undefined) {
+    return (
+      <span className="inline-flex items-center justify-end gap-1 text-muted-foreground">
+        <Minus className="h-3.5 w-3.5" aria-hidden />
+        <span className="tabular-nums text-xs">—</span>
+      </span>
+    );
+  }
+  if (delta > 0) {
+    return (
+      <span className="inline-flex items-center justify-end gap-1 text-emerald-600 dark:text-emerald-400">
+        <TrendingUp className="h-3.5 w-3.5" aria-hidden />
+        <span className="tabular-nums font-semibold">+{delta}</span>
+      </span>
+    );
+  }
+  if (delta < 0) {
+    return (
+      <span className="inline-flex items-center justify-end gap-1 text-destructive">
+        <TrendingDown className="h-3.5 w-3.5" aria-hidden />
+        <span className="tabular-nums font-semibold">−{Math.abs(delta)}</span>
+      </span>
+    );
+  }
+  return (
+    <span className={cn("inline-flex items-center justify-end gap-1 text-muted-foreground")}>
+      <Minus className="h-3.5 w-3.5" aria-hidden />
+      <span className="tabular-nums">±0</span>
+    </span>
   );
 }

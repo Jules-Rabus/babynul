@@ -30,9 +30,7 @@ export function Footer() {
             GitHub
           </a>
         </div>
-        <p className="text-xs">
-          Babynul · Baby-foot + Elo + paris fictifs · propulsé par Supabase &amp; Vercel
-        </p>
+        <p className="text-xs">Babynul · Baby-foot + Elo + paris fictifs</p>
       </div>
     </footer>
   );

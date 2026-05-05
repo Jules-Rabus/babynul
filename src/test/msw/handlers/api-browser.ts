@@ -43,13 +43,42 @@ function seed(): State {
     created_at: new Date().toISOString(),
   }));
 
+  // Génère un id d'équipe stable à partir d'une paire de player ids (ordre indépendant).
+  const teamPairs = new Map<string, { id: string; player1Id: string; player2Id: string; games: number; eloDelta: number }>();
+  const teamIdFor = (a: string, b: string) => {
+    const [p1, p2] = a < b ? [a, b] : [b, a];
+    const key = `${p1}::${p2}`;
+    let entry = teamPairs.get(key);
+    if (!entry) {
+      entry = { id: `team-${p1}-${p2}`, player1Id: p1, player2Id: p2, games: 0, eloDelta: 0 };
+      teamPairs.set(key, entry);
+    }
+    return entry;
+  };
+
   const matches: Row[] = DEMO_MATCHES.map((m) => {
     const isTeam = m.teamA.length === 2 && m.teamB.length === 2;
+    let teamAId: string | null = null;
+    let teamBId: string | null = null;
+    let teamDeltaA: number | null = null;
+    let teamDeltaB: number | null = null;
+    if (isTeam) {
+      const tA = teamIdFor(m.teamA[0]!, m.teamA[1]!);
+      const tB = teamIdFor(m.teamB[0]!, m.teamB[1]!);
+      teamAId = tA.id;
+      teamBId = tB.id;
+      teamDeltaA = m.winner_side === "A" ? 12 : -12;
+      teamDeltaB = m.winner_side === "B" ? 12 : -12;
+      tA.games += 1;
+      tB.games += 1;
+      tA.eloDelta += teamDeltaA;
+      tB.eloDelta += teamDeltaB;
+    }
     return {
       id: m.id,
       mode: isTeam ? "team" : "individual",
-      team_a_id: null,
-      team_b_id: null,
+      team_a_id: teamAId,
+      team_b_id: teamBId,
       player_a1_id: m.teamA[0] ?? null,
       player_a2_id: m.teamA[1] ?? null,
       player_b1_id: m.teamB[0] ?? null,
@@ -59,13 +88,22 @@ function seed(): State {
       winner_side: m.winner_side,
       elo_delta_a: 10,
       elo_delta_b: -10,
-      team_elo_delta_a: null,
-      team_elo_delta_b: null,
+      team_elo_delta_a: teamDeltaA,
+      team_elo_delta_b: teamDeltaB,
       played_at: m.played_at,
       recorded_by: null,
       session_id: m.session_id ?? null,
     };
   });
+
+  const teams: Row[] = Array.from(teamPairs.values()).map((t) => ({
+    id: t.id,
+    player1_id: t.player1Id,
+    player2_id: t.player2Id,
+    elo: 1000 + t.eloDelta,
+    games_played: t.games,
+    created_at: new Date().toISOString(),
+  }));
 
   const play_sessions: Row[] = [
     {
@@ -89,7 +127,7 @@ function seed(): State {
   return {
     players,
     matches,
-    teams: [],
+    teams,
     proposed_matches: [],
     wagers: [],
     play_sessions,
@@ -119,7 +157,15 @@ export function makeHandlers(): HttpHandler[] {
     http.get("/api/players", () => HttpResponse.json(state.players)),
 
     // GET /api/teams
-    http.get("/api/teams", () => HttpResponse.json(state.teams)),
+    http.get("/api/teams", () =>
+      HttpResponse.json(
+        state.teams.map((t) => ({
+          ...t,
+          player1: playerById(t.player1_id as string | null),
+          player2: playerById(t.player2_id as string | null),
+        })),
+      ),
+    ),
 
     // GET /api/matches?scope=recent|player|session
     http.get("/api/matches", ({ request }) => {

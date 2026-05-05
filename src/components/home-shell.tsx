@@ -9,6 +9,8 @@ import { AdminProvider } from "@/components/admin-context";
 import { IdentityPicker } from "@/components/identity-picker";
 import { PlayersRanking } from "@/components/ranking/players-ranking";
 import { TeamsRanking } from "@/components/ranking/teams-ranking";
+import { DailyPlayersRanking } from "@/components/ranking/daily-players-ranking";
+import { DailyTeamsRanking } from "@/components/ranking/daily-teams-ranking";
 import { RecordMatchForm } from "@/components/matches/record-match-form";
 import { MatchmakingPanel } from "@/components/matchmaking/matchmaking-panel";
 import { PlayersTable } from "@/components/players-admin/players-table";
@@ -83,8 +85,10 @@ export function HomeShell({ unlocked }: { unlocked: boolean }) {
               </TabsList>
             </div>
 
-            <TabsContent value="ranking" className="grid gap-4 lg:grid-cols-2">
+            <TabsContent value="ranking" className="grid gap-4">
+              <DailyPlayersRanking />
               <PlayersRanking />
+              <DailyTeamsRanking />
               <TeamsRanking />
             </TabsContent>
 
