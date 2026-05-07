@@ -40,6 +40,10 @@ export type MatchRow = {
   winner_side: "A" | "B";
   elo_delta_a: number;
   elo_delta_b: number;
+  elo_delta_a1: number | null;
+  elo_delta_a2: number | null;
+  elo_delta_b1: number | null;
+  elo_delta_b2: number | null;
   team_elo_delta_a: number | null;
   team_elo_delta_b: number | null;
   played_at: string;

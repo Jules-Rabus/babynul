@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { displayName } from "@/lib/player-display";
 import { initials, cn } from "@/lib/utils";
 import type { MatchRow, PlayerRow } from "@/lib/db/types";
+import { deltaForPlayer } from "@/lib/match-delta";
 
 type Props = {
   player: PlayerRow | null;
@@ -37,7 +38,7 @@ function viewsForPlayer(matches: MatchRow[], playerId: string): PlayerMatchView[
     const onB = m.player_b1_id === playerId || m.player_b2_id === playerId;
     if (!onA && !onB) continue;
     const side = onA ? "A" : "B";
-    const delta = side === "A" ? m.elo_delta_a : m.elo_delta_b;
+    const delta = deltaForPlayer(m, playerId);
     const won = m.winner_side === side;
     const partnerId =
       m.mode === "team"

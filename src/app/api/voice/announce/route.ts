@@ -27,6 +27,10 @@ type DBMatchRow = {
   winner_side: "A" | "B";
   elo_delta_a: number;
   elo_delta_b: number;
+  elo_delta_a1: number | null;
+  elo_delta_a2: number | null;
+  elo_delta_b1: number | null;
+  elo_delta_b2: number | null;
   team_elo_delta_a: number | null;
   team_elo_delta_b: number | null;
   played_at: string;
@@ -99,6 +103,10 @@ export async function POST(req: Request) {
       winner_side: m.winnerSide as "A" | "B",
       elo_delta_a: m.eloDeltaA,
       elo_delta_b: m.eloDeltaB,
+      elo_delta_a1: m.eloDeltaA1,
+      elo_delta_a2: m.eloDeltaA2,
+      elo_delta_b1: m.eloDeltaB1,
+      elo_delta_b2: m.eloDeltaB2,
       team_elo_delta_a: m.teamEloDeltaA,
       team_elo_delta_b: m.teamEloDeltaB,
       played_at: m.playedAt.toISOString(),

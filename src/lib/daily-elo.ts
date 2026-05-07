@@ -1,4 +1,5 @@
 import type { MatchRow } from "@/lib/db/types";
+import { deltaForSlot, type MatchSlot } from "@/lib/match-delta";
 
 export type DailyPlayerStat = {
   playerId: string;
@@ -39,8 +40,9 @@ export function aggregatePlayersForDay(
   day: string,
 ): Map<string, DailyPlayerStat> {
   const result = new Map<string, DailyPlayerStat>();
-  const bump = (id: string | null, side: "A" | "B", m: MatchRow) => {
+  const bump = (id: string | null, slot: MatchSlot, m: MatchRow) => {
     if (!id) return;
+    const side: "A" | "B" = slot.startsWith("a") ? "A" : "B";
     const cur = result.get(id) ?? {
       playerId: id,
       games: 0,
@@ -49,7 +51,7 @@ export function aggregatePlayersForDay(
       eloDelta: 0,
     };
     cur.games += 1;
-    cur.eloDelta += side === "A" ? m.elo_delta_a : m.elo_delta_b;
+    cur.eloDelta += deltaForSlot(m, slot);
     if (m.winner_side === side) cur.wins += 1;
     else cur.losses += 1;
     result.set(id, cur);
@@ -57,10 +59,10 @@ export function aggregatePlayersForDay(
 
   for (const m of matches) {
     if (dayKey(m.played_at) !== day) continue;
-    bump(m.player_a1_id, "A", m);
-    if (m.mode === "team") bump(m.player_a2_id, "A", m);
-    bump(m.player_b1_id, "B", m);
-    if (m.mode === "team") bump(m.player_b2_id, "B", m);
+    bump(m.player_a1_id, "a1", m);
+    if (m.mode === "team") bump(m.player_a2_id, "a2", m);
+    bump(m.player_b1_id, "b1", m);
+    if (m.mode === "team") bump(m.player_b2_id, "b2", m);
   }
   return result;
 }

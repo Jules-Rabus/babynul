@@ -17,64 +17,30 @@ import { useRecentMatches } from "@/lib/queries/matches";
 import { usePlayers } from "@/lib/queries/players";
 import { displayName } from "@/lib/player-display";
 import { initials, cn } from "@/lib/utils";
-import type { MatchRow, PlayerRow } from "@/lib/db/types";
+import type { PlayerRow } from "@/lib/db/types";
+import { aggregatePlayersForDay, dayKey } from "@/lib/daily-elo";
 import { DailyPlayerDetailDialog } from "./daily-player-detail-dialog";
-
-type DailyStat = {
-  playerId: string;
-  games: number;
-  wins: number;
-  losses: number;
-  eloDelta: number;
-};
-
-function aggregateDaily(matches: MatchRow[]): Map<string, DailyStat> {
-  const map = new Map<string, DailyStat>();
-  const bump = (id: string | null, side: "A" | "B", m: MatchRow) => {
-    if (!id) return;
-    const cur = map.get(id) ?? {
-      playerId: id,
-      games: 0,
-      wins: 0,
-      losses: 0,
-      eloDelta: 0,
-    };
-    cur.games += 1;
-    cur.eloDelta += side === "A" ? m.elo_delta_a : m.elo_delta_b;
-    if (m.winner_side === side) cur.wins += 1;
-    else cur.losses += 1;
-    map.set(id, cur);
-  };
-
-  for (const m of matches) {
-    bump(m.player_a1_id, "A", m);
-    if (m.mode === "team") bump(m.player_a2_id, "A", m);
-    bump(m.player_b1_id, "B", m);
-    if (m.mode === "team") bump(m.player_b2_id, "B", m);
-  }
-  return map;
-}
 
 export function DailyEloRanking() {
   const { data: matches = [], isLoading } = useRecentMatches(2);
   const { data: players = [] } = usePlayers();
   const [selected, setSelected] = useState<PlayerRow | null>(null);
 
-  const todayMatches = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startMs = startOfToday.getTime();
-    return matches.filter((m) => new Date(m.played_at).getTime() >= startMs);
-  }, [matches]);
+  const today = useMemo(() => dayKey(new Date().toISOString()), []);
+
+  const todayMatches = useMemo(
+    () => matches.filter((m) => dayKey(m.played_at) === today),
+    [matches, today],
+  );
 
   const ranking = useMemo(() => {
-    const stats = aggregateDaily(todayMatches);
+    const stats = aggregatePlayersForDay(matches, today);
     const playerById = new Map(players.map((p) => [p.id, p]));
     return Array.from(stats.values())
       .map((s) => ({ ...s, player: playerById.get(s.playerId) ?? null }))
       .filter((r) => r.player !== null)
       .sort((a, b) => b.eloDelta - a.eloDelta);
-  }, [todayMatches, players]);
+  }, [matches, today, players]);
 
   if (isLoading) return null;
   if (ranking.length === 0) return null;

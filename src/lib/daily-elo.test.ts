@@ -35,6 +35,10 @@ function indiv(opts: Partial<MatchRow> & {
     winner_side: opts.winner_side,
     elo_delta_a: opts.delta_a,
     elo_delta_b: opts.delta_b,
+    elo_delta_a1: opts.delta_a,
+    elo_delta_a2: null,
+    elo_delta_b1: opts.delta_b,
+    elo_delta_b2: null,
     team_elo_delta_a: null,
     team_elo_delta_b: null,
     played_at: opts.played_at,
@@ -50,6 +54,10 @@ function team(opts: {
   winner_side: "A" | "B";
   delta_a: number; delta_b: number;
   team_delta_a: number; team_delta_b: number;
+  delta_a1?: number | null;
+  delta_a2?: number | null;
+  delta_b1?: number | null;
+  delta_b2?: number | null;
 }): MatchRow {
   return {
     id: crypto.randomUUID(),
@@ -65,6 +73,10 @@ function team(opts: {
     winner_side: opts.winner_side,
     elo_delta_a: opts.delta_a,
     elo_delta_b: opts.delta_b,
+    elo_delta_a1: opts.delta_a1 ?? null,
+    elo_delta_a2: opts.delta_a2 ?? null,
+    elo_delta_b1: opts.delta_b1 ?? null,
+    elo_delta_b2: opts.delta_b2 ?? null,
     team_elo_delta_a: opts.team_delta_a,
     team_elo_delta_b: opts.team_delta_b,
     played_at: opts.played_at,
@@ -117,7 +129,7 @@ describe("aggregatePlayersForDay", () => {
     expect(stats.get("p3")).toEqual({ playerId: "p3", games: 1, wins: 1, losses: 0, eloDelta: 8 });
   });
 
-  it("compte les 4 joueurs en mode équipe", () => {
+  it("compte les 4 joueurs en mode équipe (fallback moyenne, sans carry)", () => {
     const day = "2025-03-07";
     const matches = [
       team({
@@ -135,6 +147,28 @@ describe("aggregatePlayersForDay", () => {
     expect(stats.get("p4")?.eloDelta).toBe(-10);
     expect(stats.get("p1")?.wins).toBe(1);
     expect(stats.get("p3")?.losses).toBe(1);
+  });
+
+  it("respecte le carry intra-équipe quand les deltas individuels sont stockés", () => {
+    const day = "2025-03-07";
+    const matches = [
+      team({
+        played_at: isoLocal(2025, 3, 7),
+        a1: "p1", a2: "p2", b1: "p3", b2: "p4",
+        team_a: "tA", team_b: "tB",
+        winner_side: "A", delta_a: 20, delta_b: -20,
+        team_delta_a: 18, team_delta_b: -18,
+        // p1 = porteur (gagne plus), p2 = partenaire faible (gagne moins)
+        delta_a1: 24, delta_a2: 16,
+        // p3 = porteur côté perdant (perd moins), p4 = faible (perd plus)
+        delta_b1: -16, delta_b2: -24,
+      }),
+    ];
+    const stats = aggregatePlayersForDay(matches, day);
+    expect(stats.get("p1")?.eloDelta).toBe(24);
+    expect(stats.get("p2")?.eloDelta).toBe(16);
+    expect(stats.get("p3")?.eloDelta).toBe(-16);
+    expect(stats.get("p4")?.eloDelta).toBe(-24);
   });
 });
 
@@ -177,6 +211,8 @@ describe("aggregateTeamsForDay", () => {
         score_a: 0, score_b: 0,
         winner_side: "A",
         elo_delta_a: 0, elo_delta_b: 0,
+        elo_delta_a1: null, elo_delta_a2: null,
+        elo_delta_b1: null, elo_delta_b2: null,
         team_elo_delta_a: null, team_elo_delta_b: null,
         played_at: isoLocal(2025, 3, 7),
         recorded_by: null, session_id: null,

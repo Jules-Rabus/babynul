@@ -14,6 +14,7 @@ import { usePlayers } from "@/lib/queries/players";
 import { initials } from "@/lib/utils";
 import { displayName } from "@/lib/player-display";
 import type { PlayerRow, MatchRow } from "@/lib/supabase/types";
+import { deltaForPlayer } from "@/lib/match-delta";
 import { useMemo } from "react";
 import {
   Line,
@@ -218,10 +219,7 @@ export function PlayerModal({
   );
 }
 
-function deltaFor(match: MatchRow, playerId: string) {
-  const onA = match.player_a1_id === playerId || match.player_a2_id === playerId;
-  return onA ? match.elo_delta_a : match.elo_delta_b;
-}
+const deltaFor = deltaForPlayer;
 
 function RelationCard({
   label,
@@ -277,7 +275,7 @@ function MatchRowItem({
 }) {
   const onA = match.player_a1_id === playerId || match.player_a2_id === playerId;
   const won = (onA && match.winner_side === "A") || (!onA && match.winner_side === "B");
-  const delta = onA ? match.elo_delta_a : match.elo_delta_b;
+  const delta = deltaForPlayer(match, playerId);
   const date = new Date(match.played_at).toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "short",
