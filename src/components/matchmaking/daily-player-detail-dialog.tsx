@@ -20,6 +20,8 @@ type Props = {
   matches: MatchRow[];
   players: PlayerRow[];
   onClose: () => void;
+  // Libellé affiché à la place de "aujourd'hui" (ex : "vendredi 7 mars").
+  dayLabel?: string;
 };
 
 type PlayerMatchView = {
@@ -73,6 +75,7 @@ export function DailyPlayerDetailDialog({
   matches,
   players,
   onClose,
+  dayLabel,
 }: Props) {
   const playerById = useMemo(
     () => new Map(players.map((p) => [p.id, p])),
@@ -128,7 +131,7 @@ export function DailyPlayerDetailDialog({
             </span>
           </DialogTitle>
           <DialogDescription>
-            Détail des matchs joués aujourd&apos;hui.
+            Détail des matchs joués {dayLabel ? dayLabel : "aujourd'hui"}.
           </DialogDescription>
         </DialogHeader>
 

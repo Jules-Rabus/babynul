@@ -24,11 +24,13 @@ import { useRecentMatches } from "@/lib/queries/matches";
 import { usePlayers } from "@/lib/queries/players";
 import { displayName } from "@/lib/player-display";
 import { cn, initials } from "@/lib/utils";
+import type { PlayerRow } from "@/lib/db/types";
 import {
   aggregatePlayersForDay,
   filterMatchesByDay,
   listMatchDays,
 } from "@/lib/daily-elo";
+import { DailyPlayerDetailDialog } from "@/components/matchmaking/daily-player-detail-dialog";
 
 const DAYS_WINDOW = 30;
 
@@ -49,6 +51,7 @@ export function DailyPlayersRanking() {
 
   const days = useMemo(() => listMatchDays(matches), [matches]);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerRow | null>(null);
 
   useEffect(() => {
     if (days.length === 0) {
@@ -148,7 +151,19 @@ export function DailyPlayersRanking() {
                           ? "text-destructive"
                           : "text-muted-foreground";
                     return (
-                      <TableRow key={r.playerId}>
+                      <TableRow
+                        key={r.playerId}
+                        className="cursor-pointer hover:bg-muted/40"
+                        onClick={() => setSelectedPlayer(r.player!)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedPlayer(r.player!);
+                          }
+                        }}
+                      >
                         <TableCell>
                           <Medal rank={i + 1} />
                         </TableCell>
@@ -179,6 +194,13 @@ export function DailyPlayersRanking() {
           </>
         )}
       </CardContent>
+      <DailyPlayerDetailDialog
+        player={selectedPlayer}
+        matches={dayMatches}
+        players={players}
+        dayLabel={selectedDay ? `le ${formatDayLabel(selectedDay)}` : undefined}
+        onClose={() => setSelectedPlayer(null)}
+      />
     </Card>
   );
 }
