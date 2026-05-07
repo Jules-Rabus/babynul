@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MatchRow } from "@/lib/db/types";
 import { apiGet } from "@/lib/api-client";
-import { recordMatch, editMatchScore } from "@/app/actions/matches";
+import { recordMatch, editMatchScore, deleteMatch } from "@/app/actions/matches";
 
 export const MATCHES_KEY = ["matches"] as const;
 
@@ -41,6 +41,20 @@ export function useEditMatch() {
       scoreA: number;
       scoreB: number;
     }) => editMatchScore(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: MATCHES_KEY });
+      qc.invalidateQueries({ queryKey: ["players"] });
+      qc.invalidateQueries({ queryKey: ["teams"] });
+      qc.invalidateQueries({ queryKey: ["proposed-matches"] });
+      qc.invalidateQueries({ queryKey: ["play-sessions"] });
+    },
+  });
+}
+
+export function useDeleteMatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (matchId: string) => deleteMatch({ matchId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MATCHES_KEY });
       qc.invalidateQueries({ queryKey: ["players"] });

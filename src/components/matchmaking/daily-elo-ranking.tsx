@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,7 +17,8 @@ import { useRecentMatches } from "@/lib/queries/matches";
 import { usePlayers } from "@/lib/queries/players";
 import { displayName } from "@/lib/player-display";
 import { initials, cn } from "@/lib/utils";
-import type { MatchRow } from "@/lib/db/types";
+import type { MatchRow, PlayerRow } from "@/lib/db/types";
+import { DailyPlayerDetailDialog } from "./daily-player-detail-dialog";
 
 type DailyStat = {
   playerId: string;
@@ -57,6 +58,7 @@ function aggregateDaily(matches: MatchRow[]): Map<string, DailyStat> {
 export function DailyEloRanking() {
   const { data: matches = [], isLoading } = useRecentMatches(2);
   const { data: players = [] } = usePlayers();
+  const [selected, setSelected] = useState<PlayerRow | null>(null);
 
   const todayMatches = useMemo(() => {
     const startOfToday = new Date();
@@ -109,7 +111,19 @@ export function DailyEloRanking() {
                   ? "text-destructive"
                   : "text-muted-foreground";
               return (
-                <TableRow key={r.playerId}>
+                <TableRow
+                  key={r.playerId}
+                  className="cursor-pointer hover:bg-muted/40"
+                  onClick={() => setSelected(r.player!)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelected(r.player!);
+                    }
+                  }}
+                >
                   <TableCell>
                     <Medal rank={i + 1} />
                   </TableCell>
@@ -137,6 +151,12 @@ export function DailyEloRanking() {
           </TableBody>
         </Table>
       </CardContent>
+      <DailyPlayerDetailDialog
+        player={selected}
+        matches={todayMatches}
+        players={players}
+        onClose={() => setSelected(null)}
+      />
     </Card>
   );
 }

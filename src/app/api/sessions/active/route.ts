@@ -6,6 +6,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Clôture paresseusement les sessions actives dont le jour calendaire est passé.
+  // Idempotent et géré côté DB (timezone Europe/Paris).
+  await prisma.$executeRaw`select public.auto_close_stale_sessions()`;
+
   const session = await prisma.playSession.findFirst({
     where: { status: "active" },
     orderBy: { startedAt: "desc" },

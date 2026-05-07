@@ -117,6 +117,11 @@ export const EditMatchScoreSchema = z
   });
 export type EditMatchScoreInput = z.infer<typeof EditMatchScoreSchema>;
 
+export const DeleteMatchSchema = z.object({
+  matchId: UuidSchema,
+});
+export type DeleteMatchInput = z.infer<typeof DeleteMatchSchema>;
+
 export const SessionMatchesQuerySchema = z.object({
   sessionId: UuidSchema,
 });

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { usePlayers } from "@/lib/queries/players";
 import { generateMatches } from "@/lib/matchmaking";
-import { Shuffle, Users, Coins, Swords, Trash2, PlayCircle, Pencil, Volume2, VolumeX, Trophy } from "lucide-react";
+import { Shuffle, Users, Coins, Swords, Trash2, PlayCircle, Pencil, Volume2, VolumeX, Trophy, ClipboardEdit } from "lucide-react";
 import { useAdmin } from "@/components/admin-context";
 import {
   useCreateProposedMatch,
@@ -23,7 +23,7 @@ import {
   useCancelProposedMatch,
   type ProposedMatchWithPlayers,
 } from "@/lib/queries/wagers";
-import { useRecentMatches, useSessionMatches } from "@/lib/queries/matches";
+import { useRecentMatches, useSessionMatches, useDeleteMatch } from "@/lib/queries/matches";
 import {
   useActiveSession,
   useSessionPresence,
@@ -37,6 +37,7 @@ import { useVoiceEnabled } from "@/lib/voice/use-announce-next-match";
 import { SessionControls } from "./session-controls";
 import { RecordSessionMatchDialog } from "./record-session-match-dialog";
 import { EditMatchDialog } from "./edit-match-dialog";
+import { ManualMatchDialog } from "./manual-match-dialog";
 import { DailyHistory } from "./daily-history";
 import { DailyEloRanking } from "./daily-elo-ranking";
 import { MatchBettingInline } from "@/components/wagers/match-betting-inline";
@@ -57,11 +58,17 @@ export function MatchmakingPanel() {
   const setPresence = useSessionPresence();
   const cancelAllOpen = useCancelOpenSessionMatches();
   const startSession = useStartSession();
+  const deleteMatch = useDeleteMatch();
 
   const [search, setSearch] = useState("");
   const [toLeave, setToLeave] = useState<string | null>(null);
   const [toRecord, setToRecord] = useState<ProposedMatchWithPlayers | null>(null);
   const [toEdit, setToEdit] = useState<ProposedMatchWithPlayers | null>(null);
+  const [toDelete, setToDelete] = useState<{
+    matchId: string;
+    label: string;
+  } | null>(null);
+  const [showManual, setShowManual] = useState(false);
 
   const sessionMatchById = useMemo(() => {
     const map = new Map<string, (typeof sessionMatches)[number]>();
@@ -271,8 +278,19 @@ export function MatchmakingPanel() {
     <div className="space-y-4">
       <SessionControls />
 
-      {voice.mounted && (
-        <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {unlocked && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => requireAdmin(() => setShowManual(true))}
+            title="Saisir un match déjà joué (sans matchmaking)"
+          >
+            <ClipboardEdit className="h-4 w-4" />
+            <span className="hidden sm:inline">Saisir un match</span>
+          </Button>
+        )}
+        {voice.mounted && (
           <Button
             variant="outline"
             size="sm"
@@ -288,8 +306,8 @@ export function MatchmakingPanel() {
               {voice.enabled ? "Mode vocal actif" : "Mode vocal"}
             </span>
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr,1.2fr]">
         <Card>
@@ -435,6 +453,15 @@ export function MatchmakingPanel() {
                                 ? () => setToEdit(m)
                                 : undefined
                             }
+                            onDelete={
+                              unlocked && m.match_id
+                                ? () =>
+                                    setToDelete({
+                                      matchId: m.match_id!,
+                                      label: `${labelFor(m, "A")} vs ${labelFor(m, "B")}`,
+                                    })
+                                : undefined
+                            }
                           />
                         );
                       })}
@@ -512,6 +539,50 @@ export function MatchmakingPanel() {
         onClose={() => setToEdit(null)}
       />
 
+      <ManualMatchDialog
+        open={showManual}
+        sessionId={sessionId}
+        ensureSession={ensureActiveSession}
+        targetScore={active?.session.target_score}
+        presentPlayers={presentPlayers}
+        onClose={() => setShowManual(false)}
+      />
+
+      <Dialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Annuler totalement ce match ?</DialogTitle>
+            <DialogDescription>
+              {toDelete?.label}
+              <br />
+              L&apos;Elo des joueurs et des équipes sera reversé, et toutes les
+              mises liées seront remboursées. Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setToDelete(null)}>
+              Garder le match
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!toDelete) return;
+                try {
+                  await deleteMatch.mutateAsync(toDelete.matchId);
+                  toast.success("Match annulé — Elo reversé, mises remboursées.");
+                  setToDelete(null);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Erreur.");
+                }
+              }}
+              disabled={deleteMatch.isPending}
+            >
+              {deleteMatch.isPending ? "Annulation…" : "Annuler le match"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!toLeave} onOpenChange={(o) => !o && setToLeave(null)}>
         <DialogContent>
           <DialogHeader>
@@ -543,6 +614,7 @@ function SessionMatchCard({
   onCancel,
   onRecord,
   onEdit,
+  onDelete,
 }: {
   match: ProposedMatchWithPlayers;
   index?: number;
@@ -552,6 +624,7 @@ function SessionMatchCard({
   onCancel: () => void;
   onRecord: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const eloGap = Math.abs(match.elo_a - match.elo_b);
   const teamALabel = labelFor(match, "A");
@@ -599,16 +672,31 @@ function SessionMatchCard({
             </Button>
           </div>
         )}
-        {!isOpen && onEdit && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onEdit}
-            title="Corriger le score (recalcul Elo)"
-            className="h-9 w-9"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+        {!isOpen && (onEdit || onDelete) && (
+          <div className="flex items-center gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onEdit}
+                title="Corriger le score (recalcul Elo)"
+                className="h-9 w-9"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                title="Annuler totalement ce match (Elo et mises remboursés)"
+                className="h-9 w-9"
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </div>
         )}
       </div>
       <MatchBettingInline match={match} />

@@ -1,7 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { RecordMatchSchema, EditMatchScoreSchema } from "@/lib/schemas";
+import {
+  RecordMatchSchema,
+  EditMatchScoreSchema,
+  DeleteMatchSchema,
+} from "@/lib/schemas";
 import { assertAdmin } from "@/lib/admin-guard";
 import { publishEvent } from "@/lib/realtime/bus";
 
@@ -62,6 +66,26 @@ export async function editMatchScore(raw: unknown): Promise<string> {
   if (!id) throw new Error("edit_match_score a retourné un id vide.");
 
   publishEvent({ type: "match:recorded", sessionId });
+  return id;
+}
+
+export async function deleteMatch(raw: unknown): Promise<string> {
+  await assertAdmin();
+  const input = DeleteMatchSchema.parse(raw);
+
+  const sessionRows = await prisma.$queryRaw<{ session_id: string | null }[]>`
+    select session_id from public.matches where id = ${input.matchId}::uuid
+  `;
+  const sessionId = sessionRows[0]?.session_id ?? null;
+
+  const rows = await prisma.$queryRaw<{ delete_match_full: string }[]>`
+    select public.delete_match_full(${input.matchId}::uuid)
+  `;
+  const id = rows[0]?.delete_match_full;
+  if (!id) throw new Error("Match introuvable.");
+
+  publishEvent({ type: "match:recorded", sessionId });
+  publishEvent({ type: "proposed-match:cancelled", sessionId });
   return id;
 }
 
