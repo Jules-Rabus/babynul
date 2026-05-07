@@ -1,19 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { displayName } from "@/lib/player-display";
 import { initials, cn } from "@/lib/utils";
 import type { MatchRow, PlayerRow } from "@/lib/db/types";
 import { deltaForPlayer } from "@/lib/match-delta";
+import { useDeleteMatch } from "@/lib/queries/matches";
+import { useAdmin } from "@/components/admin-context";
+import { toast } from "sonner";
 
 type Props = {
   player: PlayerRow | null;
@@ -77,6 +83,13 @@ export function DailyPlayerDetailDialog({
   onClose,
   dayLabel,
 }: Props) {
+  const { unlocked } = useAdmin();
+  const deleteMatch = useDeleteMatch();
+  const [toDelete, setToDelete] = useState<{
+    matchId: string;
+    label: string;
+  } | null>(null);
+
   const playerById = useMemo(
     () => new Map(players.map((p) => [p.id, p])),
     [players],
@@ -204,6 +217,23 @@ export function DailyPlayerDetailDialog({
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {fmtTime(v.match.played_at)}
                       </span>
+                      {unlocked && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Annuler totalement ce match (Elo et mises remboursés)"
+                          onClick={() =>
+                            setToDelete({
+                              matchId: v.match.id,
+                              label: `${displayName(player)} ${teamLabel} vs ${opponents} (${scoreLeft}–${scoreRight})`,
+                            })
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      )}
                     </span>
                   </li>
                 );
@@ -212,6 +242,46 @@ export function DailyPlayerDetailDialog({
           </div>
         ) : null}
       </DialogContent>
+
+      <Dialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Annuler totalement ce match ?</DialogTitle>
+            <DialogDescription>
+              {toDelete?.label}
+              <br />
+              L&apos;Elo des joueurs et des équipes sera reversé, et toutes
+              les mises liées seront remboursées. Cette action est
+              irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setToDelete(null)}>
+              Garder le match
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!toDelete) return;
+                try {
+                  await deleteMatch.mutateAsync(toDelete.matchId);
+                  toast.success(
+                    "Match annulé — Elo reversé, mises remboursées.",
+                  );
+                  setToDelete(null);
+                } catch (err) {
+                  toast.error(
+                    err instanceof Error ? err.message : "Erreur.",
+                  );
+                }
+              }}
+              disabled={deleteMatch.isPending}
+            >
+              {deleteMatch.isPending ? "Annulation…" : "Annuler le match"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
